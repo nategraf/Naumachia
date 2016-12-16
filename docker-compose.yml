@@ -1,0 +1,21 @@
+version: '2'
+
+services:
+    mysql:
+        image: mysql:5.7
+        environment:
+            MYSQL_ROOT_PASSWORD: dees
+            MYSQL_DATABASE: vuln
+            MYSQL_USER: seed
+            MYSQL_PASSWORD: dees
+        volumes:
+            - ./mysql/data:/var/lib/mysql
+            - ./mysql/load:/home/mysql
+
+    apache:
+        depends_on:
+            - mysql
+        build: ./apache
+        ports:
+            - "8000:80"
+        restart: always
