@@ -1,20 +1,22 @@
 version: '2'
 
 services:
-    mysql:
+    db:
         image: mysql:5.7
         environment:
             MYSQL_ROOT_PASSWORD: dees
-            MYSQL_DATABASE: vuln
+            MYSQL_DATABASE: Users
             MYSQL_USER: seed
             MYSQL_PASSWORD: dees
+        ports:
+            - "3306:3306"
         volumes:
-            - ./mysql/data:/var/lib/mysql
-            - ./mysql/load:/home/mysql
+            - ./db/mysql:/var/lib/mysql
+            - ./db/initdb:/docker-entrypoint-initdb.d
 
     apache:
         depends_on:
-            - mysql
+            - db
         build: ./apache
         ports:
             - "8000:80"

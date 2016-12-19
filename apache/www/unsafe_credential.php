@@ -71,7 +71,7 @@ Email: kying@syr.edu
    $conn->close();	
 
 function getDB() {
-   $dbhost="mysql";
+   $dbhost="db";
    $dbuser="root";
    $dbpass="dees";
    $dbname="Users";

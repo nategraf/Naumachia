@@ -33,9 +33,9 @@ Email: kying@syr.edu
    exit();
 
 function getDB() {
-   $dbhost="localhost";
+   $dbhost="db";
    $dbuser="root";
-   $dbpass="seedubuntu";
+   $dbpass="dees";
    $dbname="Users";
 
 
