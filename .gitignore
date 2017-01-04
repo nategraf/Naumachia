@@ -1,1 +1,2 @@
-db/mysql/*
+sql_injection_prototype/db/mysql/*
+.*.swp

@@ -8,8 +8,8 @@ services:
             MYSQL_DATABASE: Users
             MYSQL_USER: seed
             MYSQL_PASSWORD: dees
-        ports:
-            - "3306:3306"
+        expose:
+            - "3306"
         volumes:
             - ./db/mysql:/var/lib/mysql
             - ./db/initdb:/docker-entrypoint-initdb.d
