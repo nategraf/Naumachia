@@ -2,31 +2,46 @@ version: '2'
 
 services:
     eve:
-        image: ubuntu:16.04
+        build: ./eve
         networks:
             user:
-                ipv4_address: 10.0.200.10
+                ipv4_address: 10.0.200.40
+        stdin_open: true
+        tty: true
+        volumes:
+            - ./eve/config:/config
+        cap_add:
+            - NET_ADMIN
 
     bob:
-        image: ubuntu:16.04
+        image: ubuntu:latest
         networks:
             chal:
                 ipv4_address: 10.0.100.30
+        stdin_open: true
+        tty: true
 
     alice:
-        image: ubuntu:16.04
+        image: ubuntu:latest
         networks:
             chal:
                 ipv4_address: 10.0.100.20
+        stdin_open: true
+        tty: true
 
-    openvpn-as:
-        image: linuxserver/openvpn-as
+    openvpn:
+        build: ./openvpn
         volumes:
-            - ./openvpn-as/server-conf:/config
+            - ./openvpn/data:/etc/openvpn
         networks:
             chal:
                 ipv4_address: 10.0.100.10
-        privileged: true
+            user:
+                ipv4_address: 10.0.200.10
+        ports:
+            - "1194:1194/udp"
+        cap_add:
+            - NET_ADMIN
 
 networks:
     chal:
