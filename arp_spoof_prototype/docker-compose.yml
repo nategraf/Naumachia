@@ -2,7 +2,7 @@ version: '2'
 
 services:
     eve:
-        build: ./eve
+        build: ./eve/build
         networks:
             user:
                 ipv4_address: 10.0.200.40
@@ -30,9 +30,9 @@ services:
         tty: true
 
     openvpn:
-        build: ./openvpn
+        build: ./openvpn/build
         volumes:
-            - ./openvpn/data:/etc/openvpn
+            - ./openvpn/config:/etc/openvpn
         networks:
             chal:
                 ipv4_address: 10.0.100.10
