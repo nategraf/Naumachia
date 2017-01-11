@@ -40,3 +40,5 @@ done
 ifconfig $eth 0.0.0.0 promisc up
 
 ifconfig $br $eth_ip netmask $eth_netmask broadcast $eth_broadcast
+
+exec ovpn_run
