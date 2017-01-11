@@ -10,11 +10,10 @@ services:
         tty: true
         volumes:
             - ./eve/config:/config
-        cap_add:
-            - NET_ADMIN
+        privileged: true
 
     bob:
-        image: ubuntu:latest
+        build: ./bob
         networks:
             chal:
                 ipv4_address: 10.0.100.30
@@ -22,12 +21,14 @@ services:
         tty: true
 
     alice:
-        image: ubuntu:latest
+        build: ./alice
         networks:
             chal:
                 ipv4_address: 10.0.100.20
         stdin_open: true
         tty: true
+        depends_on:
+            - bob
 
     openvpn:
         build: ./openvpn/build
