@@ -3,7 +3,7 @@ declare -x OVPN_CIPHER=""
 declare -x OVPN_CLIENT_TO_CLIENT
 declare -x OVPN_CN="10.0.200.10"
 declare -x OVPN_COMP_LZO="1"
-declare -x OVPN_DEFROUTE="1"
+declare -x OVPN_DEFROUTE="0"
 declare -x OVPN_DEVICE="tap"
 declare -x OVPN_DNS="1"
 declare -x OVPN_ENV="/etc/openvpn/ovpn_env.sh"
