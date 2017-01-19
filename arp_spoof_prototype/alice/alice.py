@@ -2,11 +2,12 @@ import socket
 import string
 from time import sleep
 import random
+import os
 
 UDP_IP = "10.0.100.30"
 UDP_PORT = 5005
 
-flag = 'flag{8ccbADba6fd11BFB}'
+flag = 'flag{' + os.environ['CTF_FLAG'] + '}'
 
 print("UDP target IP:", UDP_IP)
 print("UDP target port:", UDP_PORT)

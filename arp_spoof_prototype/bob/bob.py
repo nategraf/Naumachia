@@ -1,9 +1,10 @@
 import socket
+import os
 
 UDP_IP = "10.0.100.30"
 UDP_PORT = 5005
 
-flag = 'flag{8ccbADba6fd11BFB}'
+flag = 'flag{' + os.environ['CTF_FLAG'] + '}'
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
