@@ -17,7 +17,6 @@ services:
         networks:
             chal:
                 ipv4_address: 10.0.100.30
-        stdin_open: true
         environment:
             - CTF_FLAG=67afB27edB18Fe33
 
@@ -26,7 +25,6 @@ services:
         networks:
             chal:
                 ipv4_address: 10.0.100.20
-        stdin_open: true
         depends_on:
             - bob
         environment:
