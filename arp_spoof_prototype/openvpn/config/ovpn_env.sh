@@ -1,5 +1,5 @@
-declare -x OVPN_AUTH=""
-declare -x OVPN_CIPHER=""
+declare -x OVPN_AUTH="SHA256"
+declare -x OVPN_CIPHER="AES-256-CBC"
 declare -x OVPN_CLIENT_TO_CLIENT
 declare -x OVPN_CN="10.0.200.10"
 declare -x OVPN_COMP_LZO="1"
