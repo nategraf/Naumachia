@@ -5,7 +5,6 @@ services:
         build: ./eve/build
         networks:
             user:
-                ipv4_address: 10.0.200.40
         stdin_open: true
         tty: true
         volumes:
