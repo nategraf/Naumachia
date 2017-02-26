@@ -17,13 +17,17 @@ services:
             - ./openvpn/config:/etc/openvpn
         networks:
             chal:
-                ipv4_address: 10.0.100.10
             user:
-                ipv4_address: 10.0.200.10
+            internal:
         ports:
             - "1194:1194/udp"
         cap_add:
             - NET_ADMIN
+
+    redis:
+        image: "redis:alpine"
+        networks:
+            internal:
 
 networks:
     chal:
@@ -31,12 +35,20 @@ networks:
         ipam:
             config:
                 - subnet: 10.0.100.0/24
-                  ip_range: 10.0.100.128/23
+                  ip_range: 10.0.100.128/25
                   gateway: 10.0.100.1
     user:
         driver: bridge
         ipam:
             config:
                 - subnet: 10.0.200.0/24
-                  ip_range: 10.0.200.128/23
+                  ip_range: 10.0.200.128/25
+                  gateway: 10.0.200.1
+
+    internal:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.0.200.0/24
+                  ip_range: 10.0.200.128/25
                   gateway: 10.0.200.1
