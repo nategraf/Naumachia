@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+This is the main components of the client registar for Naumachia2
+It is designed to interface with the OpenVPN learn-address event.
+Whenever OpenVPN fires that event off, this script updates Redis
+"""
 
 from argparse import ArgumentParser
 from redis import StrictRedis
@@ -18,7 +23,6 @@ if __name__ == "__main__":
 
     redis = StrictRedis(host=redis_hostname, port=6379)
 
-    resp = None
     if args.action == "add" or args.action == "update":
         if not args.cn:
             raise ValueError("CN is required for add/update")
@@ -27,11 +31,13 @@ if __name__ == "__main__":
             redis.hdel(addr_key, addr)
         redis.hset(cn_key, args.cn, args.addr)
         redis.hset(addr_key, args.addr, args.cn)
+
     elif args.action == "delete":
         cn = redis.hget(addr_key, args.addr)
         if cn:
             redis.hdel(cn_key, cn)
         redis.hdel(addr_key, args.addr)
+
     else:
         raise ValueError("Unrecognized command: {}".format(args.action))
 
