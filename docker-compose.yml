@@ -39,6 +39,14 @@ services:
         networks:
             internal:
 
+    cluster-manager:
+        image: "python:alpine"
+        networks: 
+            internal:
+        volumes:
+            - ./cluster-manager/app:/app
+        command: [python, /app/cluster-manager.py]
+
 networks:
     chal:
         driver: bridge
