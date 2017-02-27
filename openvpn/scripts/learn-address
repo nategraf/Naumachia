@@ -5,8 +5,8 @@ from redis import StrictRedis
 from os import getenv
 
 redis_hostname = getenv('REDIS_HOSTNAME', 'redis')
-addr_key = getenv('NAM_ADDR_KEY', 'addrs')
-cn_key = getenv('NAM_CN_KEY', 'cnames')
+addr_key = getenv('NAUM_ADDR_KEY', 'addrs')
+cn_key = getenv('NAUM_CN_KEY', 'cnames')
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Interface with the OpenVPN. Stores CN-address realations into a Redis DB")
