@@ -2,6 +2,11 @@
 
 from argparse import ArgumentParser
 from redis import StrictRedis
+from os import getenv
+
+redis_hostname = getenv('REDIS_HOSTNAME', 'redis')
+addr_key = getenv('NAM_ADDR_KEY', 'addrs')
+cn_key = getenv('NAM_CN_KEY', 'cnames')
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Interface with the OpenVPN. Stores CN-address realations into a Redis DB")
@@ -11,22 +16,22 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    redis = StrictRedis(host='redis', port=6379)
+    redis = StrictRedis(host=redis_hostname, port=6379)
 
     resp = None
     if args.action == "add" or args.action == "update":
         if not args.cn:
             raise ValueError("CN is required for add/update")
-        addr = redis.get(args.cn)
+        addr = redis.hget(cn_key, args.cn)
         if addr:
-            redis.delete(addr)
-        redis.set(args.cn, args.addr)
-        redis.set(args.addr, args.cn)
+            redis.hdel(addr_key, addr)
+        redis.hset(cn_key, args.cn, args.addr)
+        redis.hset(addr_key, args.addr, args.cn)
     elif args.action == "delete":
-        cn = redis.get(args.addr)
+        cn = redis.hget(addr_key, args.addr)
         if cn:
-            redis.delete(cn)
-        redis.delete(args.addr)
+            redis.hdel(cn_key, cn)
+        redis.hdel(addr_key, args.addr)
     else:
         raise ValueError("Unrecognized command: {}".format(args.action))
 

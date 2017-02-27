@@ -27,6 +27,12 @@ services:
             - "1194:1194/udp"
         cap_add:
             - NET_ADMIN
+        environment:
+            - REDIS_HOSTNAME
+            - NAM_ADDR_KEY
+            - NAM_CN_KEY
+        links:
+            - "redis:${REDIS_HOSTNAME}"
 
     redis:
         image: "redis:alpine"
