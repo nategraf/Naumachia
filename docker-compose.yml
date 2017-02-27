@@ -39,7 +39,8 @@ services:
         networks:
             internal:
         volumes:
-            - ./redis/config/redis.conf:/usr/local/etc/redis/redis.conf
+            - ./redis/config:/usr/local/etc/redis
+        command: [redis-server, /usr/local/etc/redis/redis.conf]
 
     cluster-manager:
         image: "python:alpine"
