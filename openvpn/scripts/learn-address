@@ -8,6 +8,9 @@ Whenever OpenVPN fires that event off, this script updates Redis
 from argparse import ArgumentParser
 from redis import StrictRedis
 import os
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 def parse_args():
     parser = ArgumentParser(description="Interface with the OpenVPN. Stores CN-address realations into a Redis DB")
@@ -50,4 +53,4 @@ if __name__ == "__main__":
     else:
         raise ValueError("Unrecognized command: {}".format(args.action))
 
-    print("Successful completed {} {} {}".format(args.action, args.addr, args.cn))
+    logging.info("Successful completed {} {} {}".format(args.action, args.addr, args.cn))

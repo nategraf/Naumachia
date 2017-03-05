@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 from redis import StrictRedis
+from time import sleep
 import os
 import threading
 import sys
+import re
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 class ControlState:
     """
@@ -47,25 +52,41 @@ class Listener(threading.Thread):
         self.pubsub = self.redis.pubsub()
         self.pubsub.psubscribe(channel)
         self.callback = callback
-        self.stop = threading.Event()
+        self.stop_event = threading.Event()
+        self.channel = channel
+        logging.info("Listener on {} subscribed".format(self.channel))
 
     def work(self, item):
-        if self.callback:
-            self.callback(item['channel'], item['data'])
-        print(item['channel'], " ", item['data'])
-        sys.stdout.flush()
+        logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
+        if self.callback and item['data'] != 1:
+            try:
+                self.callback(item['channel'].decode("utf-8"), item['data'].decode("utf-8"), self.redis)
+            except:
+                logging.exception("Callback failed on {}".format(self.channel))
 
     def stop(self):
-        self.stop.set()
+        self.stop_event.set()
 
     def run(self):
         for item in self.pubsub.listen():
-            if self.stop.is_set():
+            if self.stop_event.is_set():
                 self.pubsub.punsubscribe()
-                print(self, "Listener on {} unsubscribed and finished".format(self.channel))
+                logging.info("Listener on {} unsubscribed and finished".format(self.channel))
                 break
             else:
                 self.work(item)
+
+def cname_cb(channel, action, redis):
+    m = re.search(r'cname::(.*)', channel)
+    key = m.group(0)
+    cname = m.group(1)
+    if action == 'del':
+        redis.hset("cluster::"+cname, "state", "stop")
+    elif action == 'set':
+        redis.hset("cluster::"+cname, "state", "up")
+    else:
+        raise ValueError("Unrecognized action '{}'".format(action))
+
 
 def get_env():
     env = {}
@@ -81,5 +102,9 @@ if __name__ == "__main__":
 
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
 
-    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'addr::*'))
+    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'cname::*'), cname_cb)
     listener.start()
+
+    sleep(60)
+
+    listener.stop()
