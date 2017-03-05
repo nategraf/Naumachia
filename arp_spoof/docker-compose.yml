@@ -1,0 +1,18 @@
+version: '2'
+
+services:
+    bob:
+        build: ./bob
+        environment:
+            - CTF_FLAG=67afB27edB18Fe33
+
+    alice:
+        build: ./alice
+        depends_on:
+            - bob
+        environment:
+            - CTF_FLAG=67afB27edB18Fe33
+
+networks:
+    default:
+        internal: true

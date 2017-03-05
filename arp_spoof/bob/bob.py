@@ -1,13 +1,17 @@
 import socket
 import os
+import sys
 
-UDP_IP = "10.0.100.30"
+UDP_IP = 'bob'
 UDP_PORT = 5005
 
 flag = 'flag{' + os.environ['CTF_FLAG'] + '}'
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind((UDP_IP, UDP_PORT))
+
+print("Listening on {}:{}".format(UDP_IP, UDP_PORT))
+sys.stdout.flush()
 
 while True:
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
@@ -18,4 +22,5 @@ while True:
         else:
             sock.sendto("Nope".encode('utf-8'), addr)
             print("Incorrect flag recieved")
+        sys.stdout.flush()
 

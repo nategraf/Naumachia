@@ -3,8 +3,9 @@ import string
 from time import sleep
 import random
 import os
+import sys
 
-UDP_IP = "10.0.100.30"
+UDP_IP = 'bob'
 UDP_PORT = 5005
 
 flag = 'flag{' + os.environ['CTF_FLAG'] + '}'
@@ -12,6 +13,7 @@ flag = 'flag{' + os.environ['CTF_FLAG'] + '}'
 print("UDP target IP:", UDP_IP)
 print("UDP target port:", UDP_PORT)
 print("message:", flag)
+sys.stdout.flush()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
