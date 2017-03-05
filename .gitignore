@@ -1,4 +1,4 @@
-sql_injection_prototype/db/mysql/*
+**/db/mysql/**
 .*.swp
 **/pki/**
 

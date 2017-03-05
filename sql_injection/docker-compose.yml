@@ -1,0 +1,27 @@
+version: '2'
+
+services:
+    db:
+        image: mysql:5.7
+        environment:
+            MYSQL_ROOT_PASSWORD: dees
+            MYSQL_DATABASE: Users
+            MYSQL_USER: seed
+            MYSQL_PASSWORD: dees
+        expose:
+            - "3306"
+        volumes:
+            - ./db/mysql:/var/lib/mysql
+            - ./db/initdb:/docker-entrypoint-initdb.d
+
+    apache:
+        depends_on:
+            - db
+        build: ./apache
+        ports:
+            - "8000:80"
+        restart: always
+
+networks:
+    default:
+        internal: true
