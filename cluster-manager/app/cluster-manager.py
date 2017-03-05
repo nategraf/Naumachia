@@ -60,30 +60,30 @@ class Listener(threading.Thread):
         logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
         if self.callback and item['data'] != 1:
             try:
-                self.callback(item['channel'].decode("utf-8"), item['data'].decode("utf-8"), self.redis)
+                self.callback(item['channel'].decode("utf-8"), item['data'].decode("utf-8"), self)
             except:
                 logging.exception("Callback failed on {}".format(self.channel))
 
     def stop(self):
+        self.pubsub.punsubscribe()
         self.stop_event.set()
 
     def run(self):
         for item in self.pubsub.listen():
             if self.stop_event.is_set():
-                self.pubsub.punsubscribe()
                 logging.info("Listener on {} unsubscribed and finished".format(self.channel))
                 break
             else:
                 self.work(item)
 
-def cname_cb(channel, action, redis):
+def cname_cb(channel, action, listener):
     m = re.search(r'cname::(.*)', channel)
     key = m.group(0)
     cname = m.group(1)
     if action == 'del':
-        redis.hset("cluster::"+cname, "state", "stop")
+        listener.redis.hset("cluster::"+cname, "state", "stop")
     elif action == 'set':
-        redis.hset("cluster::"+cname, "state", "up")
+        listener.redis.hset("cluster::"+cname, "state", "up")
     else:
         raise ValueError("Unrecognized action '{}'".format(action))
 
@@ -101,10 +101,10 @@ if __name__ == "__main__":
     env = get_env()
 
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
-
-    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'cname::*'), cname_cb)
+    
+    update_event = threading.Event()
+    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'cname::*'), cname_cb, )
     listener.start()
 
-    sleep(60)
-
+    sleep(5)
     listener.stop()

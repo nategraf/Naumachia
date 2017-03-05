@@ -38,14 +38,14 @@ if __name__ == "__main__":
     if args.action == "add" or args.action == "update":
         if not args.cn:
             raise ValueError("CN is required for add/update")
-        addr = redis.get('cname::'+args.cn)
+        addr = redis.get('cname::'+args.cn).decode('utf-8')
         if addr:
             redis.delete('addr::'+addr)
         redis.set('cname::'+args.cn, args.addr)
         redis.set('addr::'+args.addr, args.cn)
 
     elif args.action == "delete":
-        cn = redis.get('addr::'+args.addr)
+        cn = redis.get('addr::'+args.addr).decode('utf-8')
         if cn:
             redis.delete('cname::'+cn)
         redis.delete('addr::'+args.addr)
