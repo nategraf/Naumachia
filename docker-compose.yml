@@ -29,26 +29,32 @@ services:
             - NET_ADMIN
         environment:
             - REDIS_HOSTNAME
-            - NAM_ADDR_KEY
-            - NAM_CN_KEY
-        links:
-            - "redis:${REDIS_HOSTNAME}"
+            - REDIS_PORT
+            - REDIS_DB
+            - BRIDGED_IP=10.0.50.10
 
     redis:
         image: "redis:alpine"
         networks:
             internal:
+                ipv4_address: 10.0.50.20
+                aliases:
+                    - "$REDIS_HOSTNAME"
         volumes:
             - ./redis/config:/usr/local/etc/redis
         command: [redis-server, /usr/local/etc/redis/redis.conf]
 
     cluster-manager:
-        image: "python:alpine"
+        build: ./cluster-manager/build
         networks: 
             internal:
         volumes:
             - ./cluster-manager/app:/app
         command: [python, /app/cluster-manager.py]
+        environment:
+            - REDIS_HOSTNAME
+            - NAM_ADDR_KEY
+            - NAM_CN_KEY
 
 networks:
     chal:

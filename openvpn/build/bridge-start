@@ -12,12 +12,11 @@ br="br0"
 # for example tap="tap0 tap1 tap2".
 tap="tap0"
 
-# Define physical ethernet interface to be bridged
+# Figure out which  physical ethernet interface to bridge
 # with TAP interface(s) above.
-eth="eth0"
-eth_ip="10.0.100.10"
-eth_netmask="255.255.255.0"
-eth_broadcast="10.0.100.255"
+eth=$(ifconfig | grep -B 1 $BRIDGED_IP | sed 's/\s.*//')
+eth_ip="$BRIDGED_IP"
+eth_netmask=$(ifconfig | grep $BRIDGED_IP | sed 's/.*Mask:\(\S\+\).*/\1/')
 
 mkdir /dev/net/
 mknod /dev/net/tun c 10 200
@@ -39,6 +38,6 @@ done
 
 ifconfig $eth 0.0.0.0 promisc up
 
-ifconfig $br $eth_ip netmask $eth_netmask broadcast $eth_broadcast
+ifconfig $br $eth_ip netmask $eth_netmask
 
 exec ovpn_run
