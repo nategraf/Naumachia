@@ -1,39 +1,97 @@
 #!/usr/bin/env python3
 
 from redis import StrictRedis
-from time import sleep
+from enum import Enum
 import os
 import threading
 import sys
 import re
 import logging
+import subprocess
 
 logging.basicConfig(level=logging.DEBUG)
+
+class Cluster:
+    """
+    A representaion of a cluster
+    """
+    class State(Enum):
+        UP = 1
+        STOP = 2
+        DOWN = 3
+
+    def __init__(self, state=None):
+        if not state:
+            self.state = self.State.UP
+        else:
+            self.state = state
+        self.composefile = "/challenges/arp_spoof/docker-compose.yml" # Hard coded for v0.0.1
+
+clusters = {}
+tracker = []
+clusters_lock = threading.Condition()
+
 
 class ControlState:
     """
     A representaion of the state of each relevant resource.
     """
     def __init__(self):
-        pass
+        clusters = {}
 
 class DockWorker(threading.Thread):
     """
     Kicks off and monitors docker-compose commands
     """
-    def __init__(self, action, project=None):
-        self.action = command
+    class Action(Enum):
+        UP = 1
+        STOP = 2
+        DOWN = 3
+
+    def __init__(self, action, project=None, detach=True, composefile=None, build=False):
+        threading.Thread.__init__(self)
+        self.action = action
         self.project = project
+        self.action = action
+        self.detach = detach
+        self.composefile = composefile
+        self.build = build
 
     def run(self):
-        pass
+        try:
+            logging.debug("Starting DockWorker {}".format(self))
+            args = ['docker-compose']
+            if self.project:
+                args.append('-p')
+                args.append(self.project)
+            if self.composefile:
+                args.append('-f')
+                args.append(self.composefile)
+
+            if self.action == DockWorker.Action.UP:
+                args.append('up')
+                if self.detach:
+                    args.append('-d')
+                if self.build:
+                    args.append('--build')
+
+            elif self.action == DockWorker.Action.DOWN:
+                args.append('down')
+
+            elif self.action == DockWorker.Action.STOP:
+                args.append('stop')
+
+            logging.debug("Issuing command '{}'".format(' '.join(args)))
+            subprocess.run(args, check=True)
+        except:
+            logging.exception("Failed to carry out DockWorker task")
 
 class Controller(threading.Thread):
     """
     Proccesses and brings into alignment desired and current states
     """
     def __init__(self):
-        pass
+        threading.Thread.__init__(self)
 
     def run(self):
         pass
@@ -77,13 +135,49 @@ class Listener(threading.Thread):
                 self.work(item)
 
 def cname_cb(channel, action, listener):
+    global clusters
+    global clusters_lock
+    global tracker
+
     m = re.search(r'cname::(.*)', channel)
     key = m.group(0)
     cname = m.group(1)
     if action == 'del':
         listener.redis.hset("cluster::"+cname, "state", "stop")
+        with clusters_lock:
+            if cname in clusters:
+                cluster = clusters[cname]
+                if cluster.state != Cluster.State.STOP:
+                    logging.info("Stopping cluster assigned to '{}'".format(cname))
+                    cluster.state = Cluster.State.STOP
+                    worker = DockWorker(DockWorker.Action.STOP, project=cname, composefile=cluster.composefile)
+                    worker.start()
+                    tracker.append(worker)
+                else:
+                    logging.debug("No stop performed on stopped cluster assigned to '{}'".format(cname))
+            else:
+                logging.debug("Stop not performed on non-existant cluster assigned to '{}'".format(cname))
+
     elif action == 'set':
         listener.redis.hset("cluster::"+cname, "state", "up")
+        with clusters_lock:
+            if cname in clusters:
+                cluster = clusters[cname]
+                if cluster.state != Cluster.State.UP:
+                    cluster.state = Cluster.State.UP
+                    logging.info("Bringing up existing cluster assigned to '{}'".format(cname))
+                    worker = DockWorker(DockWorker.Action.UP, project=cname, composefile=cluster.composefile)
+                    worker.start()
+                    tracker.append(worker)
+                else:
+                    logging.debug("No action performed on online cluster assigned to '{}'".format(cname))
+            else:
+                logging.info("Bringing up new cluster assigned to '{}'".format(cname))
+                cluster = Cluster(Cluster.State.UP)
+                clusters[cname] = cluster
+                worker = DockWorker(DockWorker.Action.UP, project=cname, composefile=cluster.composefile)
+                worker.start()
+                tracker.append(worker)
     else:
         raise ValueError("Unrecognized action '{}'".format(action))
 
@@ -105,6 +199,3 @@ if __name__ == "__main__":
     update_event = threading.Event()
     listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'cname::*'), cname_cb, )
     listener.start()
-
-    sleep(5)
-    listener.stop()

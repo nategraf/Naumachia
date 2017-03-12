@@ -31,7 +31,7 @@ services:
             - REDIS_HOSTNAME
             - REDIS_PORT
             - REDIS_DB
-            - BRIDGED_IP=10.0.50.10
+            - BRIDGED_IP=10.0.100.10
 
     redis:
         image: "redis:alpine"
@@ -50,6 +50,8 @@ services:
             internal:
         volumes:
             - ./cluster-manager/app:/app
+            - ./challenges:/challenges
+            - /var/run/docker.sock:/var/run/docker.sock
         command: [python, /app/cluster-manager.py]
         environment:
             - REDIS_HOSTNAME
