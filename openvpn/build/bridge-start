@@ -38,6 +38,8 @@ done
 
 ifconfig $eth 0.0.0.0 promisc up
 
-ifconfig $br $eth_ip netmask $eth_netmask
+# Don't assign an address
+#ifconfig $br $eth_ip netmask $eth_netmask
+ifconfig $br up
 
 exec ovpn_run
