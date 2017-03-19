@@ -1,0 +1,10 @@
+authoritative;
+
+default-lease-time 7200;
+max-lease-time 7200;
+
+subnet ${DHCPD_NADDR} netmask ${DHCPD_NMASK} {
+    range ${DHCPD_START} ${DHCPD_STOP};
+    option subnet-mask ${DHCPD_NMASK};
+    option broadcast-address ${DHCPD_BCAST};
+}
