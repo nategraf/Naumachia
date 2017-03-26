@@ -1,0 +1,10 @@
+FROM kylemanna/openvpn
+
+RUN apk --update add python3 py-pip
+RUN pip3 install redis
+
+COPY ./bridge-start /bin/bridge-start
+RUN chmod +x /bin/bridge-start
+
+ENTRYPOINT ["bridge-start"]
+CMD ["ovpn_run"]

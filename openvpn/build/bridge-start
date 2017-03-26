@@ -42,4 +42,5 @@ ifconfig $eth 0.0.0.0 promisc up
 #ifconfig $br $eth_ip netmask $eth_netmask
 ifconfig $br up
 
-exec ovpn_run
+echo "bridge-start complete: now running $@"
+exec "$@"
