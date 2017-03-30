@@ -5,6 +5,8 @@ services:
         build: ./bob
         environment:
             - CTF_FLAG=67afB27edB18Fe33
+        cap_add:
+            - NET_ADMIN
 
     alice:
         build: ./alice
@@ -12,7 +14,5 @@ services:
             - bob
         environment:
             - CTF_FLAG=67afB27edB18Fe33
-
-networks:
-    default:
-        internal: true
+        cap_add:
+            - NET_ADMIN

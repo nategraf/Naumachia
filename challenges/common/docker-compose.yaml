@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+    dhcpd:
+        build: ../common/dhcpd/build
+        networks:
+            default:
+
+networks:
+    default:
+        internal: true

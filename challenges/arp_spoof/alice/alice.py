@@ -22,5 +22,9 @@ while True:
     if random.random() < 0.8:
         rand_hex16 = ''.join([random.choice(string.hexdigits) for n in range(16)])
         message = "flag{" + rand_hex16 + "}"
-    sock.sendto(("Is this the flag? " + message).encode('utf-8'), (UDP_IP, UDP_PORT))
+    try:
+        sock.sendto(("Is this the flag? " + message).encode('utf-8'), (UDP_IP, UDP_PORT))
+    except Exception as e:
+        print(e)
+        pass
     sleep(3)

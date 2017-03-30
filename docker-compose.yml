@@ -4,7 +4,7 @@ services:
     eve:
         build: ./eve/build
         networks:
-            user:
+            default:
         stdin_open: true
         tty: true
         volumes:
@@ -19,7 +19,7 @@ services:
         networks:
             chal:
                 ipv4_address: 10.0.100.10
-            user:
+            default:
                 ipv4_address: 10.0.200.10
             internal:
                 ipv4_address: 10.0.50.10
@@ -58,6 +58,7 @@ services:
             - NAM_ADDR_KEY
             - NAM_CN_KEY
 
+
 networks:
     chal:
         driver: bridge
@@ -66,7 +67,9 @@ networks:
                 - subnet: 10.0.100.0/24
                   ip_range: 10.0.100.128/25
                   gateway: 10.0.100.1
-    user:
+        internal: true
+
+    default:
         driver: bridge
         ipam:
             config:
@@ -81,3 +84,4 @@ networks:
                 - subnet: 10.0.50.0/24
                   ip_range: 10.0.50.128/25
                   gateway: 10.0.50.1
+        internal: true
