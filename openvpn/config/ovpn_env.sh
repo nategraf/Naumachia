@@ -1,7 +1,7 @@
 declare -x OVPN_AUTH="SHA256"
 declare -x OVPN_CIPHER="AES-256-CBC"
 declare -x OVPN_CLIENT_TO_CLIENT
-declare -x OVPN_CN="openvpn"
+declare -x OVPN_CN="ctf.cse.tamu.edu"
 declare -x OVPN_COMP_LZO="1"
 declare -x OVPN_DEFROUTE="0"
 declare -x OVPN_DEVICE="tap"
@@ -16,5 +16,5 @@ declare -x OVPN_PROTO="udp"
 declare -x OVPN_PUSH
 declare -x OVPN_ROUTES
 declare -x OVPN_SERVER="192.168.255.0/24"
-declare -x OVPN_SERVER_URL="udp://openvpn:1194"
+declare -x OVPN_SERVER_URL="udp://ctf.cse.tamu.edu:1194"
 declare -x OVPN_TLS_CIPHER=""

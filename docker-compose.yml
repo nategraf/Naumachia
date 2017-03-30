@@ -12,7 +12,11 @@ services:
         privileged: true
 
     openvpn:
-        build: ./openvpn/build
+        build:
+            context: ./openvpn/build
+            args:
+                - OVPN_REPO_URL
+                - OVPN_REPO_BRANCH
         volumes:
             - ./openvpn/config:/etc/openvpn
             - ./openvpn/scripts:/nam
@@ -31,7 +35,7 @@ services:
             - REDIS_HOSTNAME
             - REDIS_PORT
             - REDIS_DB
-            - BRIDGED_IP=10.0.100.10
+            - MIRRORED_IP=10.0.100.10
 
     redis:
         image: "redis:alpine"
