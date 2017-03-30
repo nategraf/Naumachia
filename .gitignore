@@ -2,6 +2,9 @@
 .*.swp
 **/pki/**
 
+openvpn/config/ccd/*
+eve/config/*.ovpn
+
 bin
 lib
 lib64
