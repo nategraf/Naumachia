@@ -1,4 +1,4 @@
 FROM python:alpine
 
-RUN apk --update add python3 py-pip
-RUN pip3 install redis docker-compose
+RUN apk --update add py-pip iproute2
+RUN pip3 install redis docker docker-compose

@@ -8,42 +8,35 @@
 # Define the name of the TAP interface.
 # for example tap="tap0".
 tap="tap0"
+vethlocal="veth0"
+vethhost="veth${HOSTNAME:0:8}" # Needs to be unique on the docker host
 
-# Figure out which  physical ethernet interface to redirect to
-# Use the IP defined in $MIRRORED_IP to identify the interface
-eth=$(ifconfig | grep -B 1 $MIRRORED_IP | sed 's/\s.*//')
-eth_ip="$MIRRORED_IP"
-eth_netmask=$(ifconfig | grep $MIRRORED_IP | sed 's/.*Mask:\(\S\+\).*/\1/')
+# Create the veth pair and throw one end of the can and string to the host
+ip link add $vethlocal type veth peer name $vethhost
+ip link set $vethhost netns host
 
+# Make the basic tunnel device for OpenVPN to use
 mkdir /dev/net/
 mknod /dev/net/tun c 10 200
 
-# Not supporting multiple taps in this version
-#for t in $tap; do
-#    openvpn --mktun --dev $t
-#done
-
-#for t in $tap; do
-#    ifconfig $t 0.0.0.0 promisc up
-#done
-
+# Configure the tunnel device. Do not start the OpenVPN service
 openvpn --mktun --dev "$tap"
 ifconfig "$tap" 0.0.0.0 promisc up
 
-ifconfig $eth 0.0.0.0 promisc up
+ifconfig $vethlocal 0.0.0.0 promisc up
 
-# Use traffic control to redirect all ingress packets on tap0 to the eth port directed at the challenge network, and vice versa. 
+# Use traffic control to redirect all ingress packets on tap0 to the veth port directed at the challenge network, and vice versa. 
 # Allows the forwarding of traffic without inserting an L2 device
 # Use stochatic fairness queue to (in theory) divy up connection time fairly between users (to avoid MAC flood DOSing the link)
-tc qdisc add dev "$eth" root sfq
+tc qdisc add dev "$vethlocal" root sfq
 tc qdisc add dev "$tap" handle ffff: ingress
 tc filter add dev "$tap" parent ffff: u32 \
     match u32 0 0 \
-    action mirred egress redirect dev "$eth"
+    action mirred egress redirect dev "$vethlocal"
 
 tc qdisc add dev "$tap" root sfq
-tc qdisc add dev "$eth" handle ffff: ingress
-tc filter add dev "$eth" parent ffff: u32 \
+tc qdisc add dev "$vethlocal" handle ffff: ingress
+tc filter add dev "$vethlocal" parent ffff: u32 \
     match u32 0 0 \
     action mirred egress redirect dev "$tap"
 

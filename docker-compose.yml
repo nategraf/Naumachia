@@ -20,9 +20,8 @@ services:
         volumes:
             - ./openvpn/config:/etc/openvpn
             - ./openvpn/scripts:/nam
+            - /var/run/docker/netns/default:/var/run/netns/host
         networks:
-            chal:
-                ipv4_address: 10.0.100.10
             default:
                 ipv4_address: 10.0.200.10
             internal:
@@ -56,23 +55,16 @@ services:
             - ./cluster-manager/app:/app
             - ./challenges:/challenges
             - /var/run/docker.sock:/var/run/docker.sock
+            - /var/run/docker/netns/default:/var/run/netns/host
         command: [python, /app/cluster-manager.py]
         environment:
             - REDIS_HOSTNAME
             - NAM_ADDR_KEY
             - NAM_CN_KEY
+        privileged: true
 
 
 networks:
-    chal:
-        driver: bridge
-        ipam:
-            config:
-                - subnet: 10.0.100.0/24
-                  ip_range: 10.0.100.128/25
-                  gateway: 10.0.100.1
-        internal: true
-
     default:
         driver: bridge
         ipam:
