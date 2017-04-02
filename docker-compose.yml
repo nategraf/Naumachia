@@ -19,13 +19,11 @@ services:
                 - OVPN_REPO_BRANCH
         volumes:
             - ./openvpn/config:/etc/openvpn
-            - ./openvpn/scripts:/nam
             - /var/run/docker/netns/default:/var/run/netns/host
+            - ./openvpn/build/scripts/naumachia-client-connect:/sbin/naumachia-client-connect
         networks:
             default:
-                ipv4_address: 10.0.200.10
             internal:
-                ipv4_address: 10.0.50.10
         ports:
             - "1194:1194/udp"
         cap_add:
@@ -34,13 +32,11 @@ services:
             - REDIS_HOSTNAME
             - REDIS_PORT
             - REDIS_DB
-            - MIRRORED_IP=10.0.100.10
 
     redis:
         image: "redis:alpine"
         networks:
             internal:
-                ipv4_address: 10.0.50.20
                 aliases:
                     - "$REDIS_HOSTNAME"
         volumes:
@@ -59,8 +55,6 @@ services:
         command: [python, /app/cluster-manager.py]
         environment:
             - REDIS_HOSTNAME
-            - NAM_ADDR_KEY
-            - NAM_CN_KEY
         privileged: true
 
 

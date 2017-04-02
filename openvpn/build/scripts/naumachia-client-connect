@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""
+This is script fires whenever a new client connects to teh VPN tuunel
+It is called under the OpenVPN --client-connect option
+When called this script adds the new user to the DB and chooses a vlan for this user
+"""
+
+from argparse import ArgumentParser
+from redis import StrictRedis
+from uuid import uuid4
+import os
+import logging
+import random
+import yaml
+
+logging.basicConfig(level=logging.DEBUG)
+
+CCTEMPLATE = """
+vlan-pvid {vlan:d}
+"""
+ENVFILE = '/env.yaml'
+
+def parse_args():
+    parser = ArgumentParser(description="Registers a new VPN user to the Redis DB and writes to the file passed in with the client specifiec configuration, whch sets the VLAN associated with this user")
+    parser.add_argument('ccname', help="The name of the client configuartion file which will be written",)
+
+    return parser.parse_args()
+
+def get_env():
+    env = {}
+    yamlenv = {}
+    with open(ENVFILE, 'r') as f:
+        yamlenv = yaml.safe_load(f)
+
+    env['REDIS_HOSTNAME'] = yamlenv.get('redis_hostname', 'redis')
+    env['REDIS_DB'] = int(yamlenv.get('redis_db', '0'))
+    env['REDIS_PORT'] = int(yamlenv.get('redis_port', '6379'))
+    env['HOSTNAME'] = yamlenv.get('hostname')
+
+    env['COMMON_NAME'] = os.getenv('common_name')
+    env['TRUSTED_IP'] = os.getenv('trusted_ip')
+    env['TRUSTED_PORT'] = os.getenv('trusted_port')
+    return env
+
+if __name__ == "__main__":
+    args = parse_args()
+    env = get_env()
+
+    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
+
+    vlan = None
+    user_id = redis.hget('cnames', env['COMMON_NAME']) 
+    if user_id:
+        user_id = user_id.decode('utf-8')
+        vlan = int(redis.hget('user:'+user_id, 'vlan').decode('utf-8'))
+        
+    else:
+        while not vlan:
+            vlan = random.randint(10,4000)
+            if redis.sismember('vlans:'+env['HOSTNAME'], vlan):
+                vlan = None
+
+        user = {
+            "vlan": str(vlan)
+        }
+        user_id = uuid4().hex
+        for key, value in user.items():
+            redis.hset('user:'+user_id, key, value)
+
+        redis.hset('cnames', env['COMMON_NAME'], user_id)
+        logging.info("Welcome to new user {}".format(env['COMMON_NAME']))
+
+    connection = {
+        "ip": env['TRUSTED_IP'],
+        "port": env['TRUSTED_PORT'],
+        "vpn": env['HOSTNAME'],
+        "state": 'active',
+        "user": user_id
+    }
+    connection_id = uuid4().hex
+    for key, value in connection.items():
+        redis.hset('connection:'+connection_id, key, value)
+
+    logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, **connection))
+
+    with open(args.ccname, 'w') as ccfile:
+        ccfile.write(CCTEMPLATE.format(vlan=vlan))

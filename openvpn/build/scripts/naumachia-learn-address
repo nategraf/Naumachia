@@ -23,10 +23,8 @@ def parse_args():
 def get_env():
     env = {}
     env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
-    env['REDIS_DB'] = os.getenv('REDIS_DB', '0')
-    env['REDIS_DB'] = int(env['REDIS_DB'])
-    env['REDIS_PORT'] = os.getenv('REDIS_PORT', '6379')
-    env['REDIS_PORT'] = int(env['REDIS_PORT'])
+    env['REDIS_DB'] = int(os.getenv('REDIS_DB', '0'))
+    env['REDIS_PORT'] = int(os.getenv('REDIS_PORT', '6379'))
     return env
 
 if __name__ == "__main__":

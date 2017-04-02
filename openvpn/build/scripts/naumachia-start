@@ -40,5 +40,18 @@ tc filter add dev "$vethlocal" parent ffff: u32 \
     match u32 0 0 \
     action mirred egress redirect dev "$tap"
 
+export NAUM_VETHHOST=$vethhost
+naumachia-register-vpn
+
+# Place all needed env variables into a yaml file
+# This is so the nobody user can access these
+printf "\
+redis_hostname: ${REDIS_HOSTNAME}\n\
+redis_db: ${REDIS_DB}\n\
+redis_port: ${REDIS_PORT}\n\
+hostname: ${HOSTNAME}\n\
+" > env.yaml
+chmod 644 env.yaml
+
 echo "tc-start complete: now running $@"
 exec "$@"
