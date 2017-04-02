@@ -80,6 +80,7 @@ if __name__ == "__main__":
     connection_id = uuid4().hex
     for key, value in connection.items():
         redis.hset('connection:'+connection_id, key, value)
+    redis.hset('connections', '{ip}:{port}'.format(**connection), connection_id)
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, **connection))
 
