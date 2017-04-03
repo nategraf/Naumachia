@@ -61,7 +61,9 @@ if __name__ == "__main__":
                 vlan = None
 
         user = {
-            "vlan": str(vlan)
+            "vlan": str(vlan),
+            "cn": env['COMMON_NAME'],
+            "status": 'active'
         }
         user_id = uuid4().hex
         for key, value in user.items():
@@ -74,13 +76,13 @@ if __name__ == "__main__":
         "ip": env['TRUSTED_IP'],
         "port": env['TRUSTED_PORT'],
         "vpn": env['HOSTNAME'],
-        "state": 'active',
         "user": user_id
     }
     connection_id = uuid4().hex
     for key, value in connection.items():
         redis.hset('connection:'+connection_id, key, value)
     redis.hset('connections', '{ip}:{port}'.format(**connection), connection_id)
+    redis.sadd('connections:'+user_id, connection_id)
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, **connection))
 

@@ -39,6 +39,12 @@ if __name__ == "__main__":
     connection_id = redis.hget('connections', client)
     if connection_id:
         connection_id = connection_id.decode('utf-8')
+        user_id = redis.hget('connection:'+connection_id, 'user')
+        if user_id:
+            user_id = user_id.decode('utf-8')
+            redis.srem('connections:'+user_id, connection_id)
+            if redis.scard('connections:'+user_id) == 0:
+                redis.hset('user:'+user_id, 'status', 'disconnected')
         redis.delete('connection:'+connection_id)
         redis.hdel('connections', client)
     else:
