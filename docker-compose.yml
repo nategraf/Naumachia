@@ -20,7 +20,7 @@ services:
         volumes:
             - ./openvpn/config:/etc/openvpn
             - /var/run/docker/netns/default:/var/run/netns/host
-            - ./openvpn/build/scripts/naumachia-client-connect:/sbin/naumachia-client-connect
+            - ./openvpn/build/scripts:/scripts
         networks:
             default:
             internal:
@@ -52,7 +52,7 @@ services:
             - ./challenges:/challenges
             - /var/run/docker.sock:/var/run/docker.sock
             - /var/run/docker/netns/default:/var/run/netns/host
-        command: [python, /app/cluster-manager.py]
+        command: [python3, /app/cluster-manager.py]
         environment:
             - REDIS_HOSTNAME
         privileged: true

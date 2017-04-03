@@ -42,10 +42,10 @@ if __name__ == "__main__":
         user_id = redis.hget('connection:'+connection_id, 'user')
         if user_id:
             user_id = user_id.decode('utf-8')
-            redis.srem('connections:'+user_id, connection_id)
+            redis.srem('user:'+user_id+':connections', connection_id)
             if redis.scard('connections:'+user_id) == 0:
                 redis.hset('user:'+user_id, 'status', 'disconnected')
-        redis.delete('connection:'+connection_id)
+        redis.hset('connection:'+connection_id, 'alive', 'no')
         redis.hdel('connections', client)
     else:
         logging.warn("Connection {} removed from Redis prior to disconnect".format(client))

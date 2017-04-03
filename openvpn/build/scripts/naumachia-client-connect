@@ -53,6 +53,7 @@ if __name__ == "__main__":
     if user_id:
         user_id = user_id.decode('utf-8')
         vlan = int(redis.hget('user:'+user_id, 'vlan').decode('utf-8'))
+        redis.hset('user:'+user_id, 'status', 'active')
         
     else:
         while not vlan:
@@ -66,8 +67,7 @@ if __name__ == "__main__":
             "status": 'active'
         }
         user_id = uuid4().hex
-        for key, value in user.items():
-            redis.hset('user:'+user_id, key, value)
+        redis.hmset('user:'+user_id, user)
 
         redis.hset('cnames', env['COMMON_NAME'], user_id)
         logging.info("Welcome to new user {}".format(env['COMMON_NAME']))
@@ -76,13 +76,13 @@ if __name__ == "__main__":
         "ip": env['TRUSTED_IP'],
         "port": env['TRUSTED_PORT'],
         "vpn": env['HOSTNAME'],
-        "user": user_id
+        "user": user_id,
+        "alive": 'yes'
     }
     connection_id = uuid4().hex
-    for key, value in connection.items():
-        redis.hset('connection:'+connection_id, key, value)
+    redis.hmset('connection:'+connection_id, connection)
     redis.hset('connections', '{ip}:{port}'.format(**connection), connection_id)
-    redis.sadd('connections:'+user_id, connection_id)
+    redis.sadd('user:'+user_id+':connections', connection_id)
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, **connection))
 

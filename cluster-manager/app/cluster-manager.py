@@ -2,6 +2,8 @@
 
 from redis import StrictRedis
 from enum import Enum
+from uuid import uuid4
+from signal import signal, SIGTERM, SIGINT
 import os
 import threading
 import sys
@@ -11,38 +13,15 @@ import subprocess
 
 logging.basicConfig(level=logging.DEBUG)
 
-class Cluster:
-    """
-    A representaion of a cluster
-    """
-    class State(Enum):
-        UP = 1
-        STOP = 2
-        DOWN = 3
-
-    def __init__(self, state=None):
-        if not state:
-            self.state = self.State.UP
-        else:
-            self.state = state
-        self.composefile = "/challenges/arp_spoof/docker-compose.yml" # Hard coded for v0.0.1
-
-clusters = {}
-tracker = []
-clusters_lock = threading.Condition()
-
-
-class ControlState:
-    """
-    A representaion of the state of each relevant resource.
-    """
-    def __init__(self):
-        clusters = {}
+# a temp global to be replaced
+COMPOSE_FILE="./challenges/arp_spoof/docker-compose.yml"
 
 class DockWorker(threading.Thread):
     """
     Kicks off and monitors docker-compose commands
     """
+    tracker = []
+
     class Action(Enum):
         UP = 1
         STOP = 2
@@ -56,8 +35,10 @@ class DockWorker(threading.Thread):
         self.detach = detach
         self.composefile = composefile
         self.build = build
+        self.subproc = None
 
     def run(self):
+        DockWorker.tracker.append(self)
         try:
             logging.debug("Starting DockWorker {}".format(self))
             args = ['docker-compose']
@@ -85,16 +66,8 @@ class DockWorker(threading.Thread):
             subprocess.run(args, check=True)
         except:
             logging.exception("Failed to carry out DockWorker task")
-
-class Controller(threading.Thread):
-    """
-    Proccesses and brings into alignment desired and current states
-    """
-    def __init__(self):
-        threading.Thread.__init__(self)
-
-    def run(self):
-        pass
+        finally:
+            DockWorker.tracker.remove(self)
 
 
 keyspace_pattern = "__keyspace@{:d}__:{:s}"
@@ -104,6 +77,8 @@ class Listener(threading.Thread):
     A listener for changes in Redis.
     Based on https://gist.github.com/jobliz/2596594
     """
+    tracker = []
+
     def __init__(self, redis, channel, callback=None):
         threading.Thread.__init__(self)
         self.redis = redis
@@ -118,7 +93,7 @@ class Listener(threading.Thread):
         logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
         if self.callback and item['data'] != 1:
             try:
-                self.callback(item['channel'].decode("utf-8"), item['data'].decode("utf-8"), self)
+                self.callback(item['channel'].decode("utf-8"), item['data'].decode("utf-8"), redis)
             except:
                 logging.exception("Callback failed on {}".format(self.channel))
 
@@ -127,60 +102,65 @@ class Listener(threading.Thread):
         self.stop_event.set()
 
     def run(self):
+        Listener.tracker.append(self)
         for item in self.pubsub.listen():
             if self.stop_event.is_set():
                 logging.info("Listener on {} unsubscribed and finished".format(self.channel))
                 break
             else:
                 self.work(item)
+        Listener.tracker.remove(self)
 
-def cname_cb(channel, action, listener):
-    global clusters
-    global clusters_lock
-    global tracker
+def connection_cb(channel, action, redis):
+    if action == 'hset':
+        m = re.search(r'connection:(.*)', channel)
+        key = m.group(0)
+        connection_id = m.group(1)
 
-    m = re.search(r'cname::(.*)', channel)
-    key = m.group(0)
-    cname = m.group(1)
-    if action == 'del':
-        listener.redis.hset("cluster::"+cname, "state", "stop")
-        with clusters_lock:
-            if cname in clusters:
-                cluster = clusters[cname]
-                if cluster.state != Cluster.State.STOP:
-                    logging.info("Stopping cluster assigned to '{}'".format(cname))
-                    cluster.state = Cluster.State.STOP
-                    worker = DockWorker(DockWorker.Action.STOP, project=cname, composefile=cluster.composefile)
-                    worker.start()
-                    tracker.append(worker)
+        user_id = redis.hget(key, 'user').decode('utf-8')
+        user_status = redis.hget('user:'+user_id, 'status')
+        if user_status:
+            user_status = user_status.decode('utf-8')
+        else:
+            raise ValueError("Connection {} for nonexistent user {}".format(connection_id, user_id))
+
+        connection_alive = True if redis.hget(key, 'alive').decode('utf-8') == 'yes' else False
+
+        if connection_alive:
+            if user_status == 'active':
+                cluster_status = redis.hget('clusters', user_id)
+                if cluster_status and cluster_status.decode('utf-8') == 'up':
+                    logging.info("New connection {} to exsiting cluster for user {}"
+                                 .format(connection_id, user_id))
                 else:
-                    logging.debug("No stop performed on stopped cluster assigned to '{}'".format(cname))
-            else:
-                logging.debug("Stop not performed on non-existant cluster assigned to '{}'".format(cname))
+                    DockWorker(DockWorker.Action.UP, project=user_id, composefile=COMPOSE_FILE).start()
 
-    elif action == 'set':
-        listener.redis.hset("cluster::"+cname, "state", "up")
-        with clusters_lock:
-            if cname in clusters:
-                cluster = clusters[cname]
-                if cluster.state != Cluster.State.UP:
-                    cluster.state = Cluster.State.UP
-                    logging.info("Bringing up existing cluster assigned to '{}'".format(cname))
-                    worker = DockWorker(DockWorker.Action.UP, project=cname, composefile=cluster.composefile)
-                    worker.start()
-                    tracker.append(worker)
+                    redis.hset('clusters', user_id, 'up')
+                    logging.info("New cluster for user {} on new connection {}"
+                                 .format(user_id, connection_id))
+
+            else:
+                raise ValueError("Invalid state {} for user {}".format(user_status, user_id))
+
+        else:
+            if user_status == 'active':
+                logging.info("Removed connection {} for active user {}"
+                                 .format(connection_id, user_id))
+
+            if user_status == 'disconnected':
+                cluster_status = redis.hget('clusters', user_id)
+                if cluster_status:
+                    if cluster_status != 'stopped':
+                        DockWorker(DockWorker.Action.STOP, project=user_id, composefile=COMPOSE_FILE).start()
+                        logging.info("Stopping cluster for user {}".format(user_id))
+                        cluster_status = redis.hset('clusters', user_id, 'stopped')
+
+                    else:
+                        logging.info("No action for already stopped cluster for user {}".format(user_id))
                 else:
-                    logging.debug("No action performed on online cluster assigned to '{}'".format(cname))
-            else:
-                logging.info("Bringing up new cluster assigned to '{}'".format(cname))
-                cluster = Cluster(Cluster.State.UP)
-                clusters[cname] = cluster
-                worker = DockWorker(DockWorker.Action.UP, project=cname, composefile=cluster.composefile)
-                worker.start()
-                tracker.append(worker)
-    else:
-        raise ValueError("Unrecognized action '{}'".format(action))
+                    logging.info("No action for user {} with no registered cluster".format(user_id))
 
+            redis.delete(key)
 
 def get_env():
     env = {}
@@ -191,11 +171,21 @@ def get_env():
     env['REDIS_PORT'] = int(env['REDIS_PORT'])
     return env
 
+def stop_handler(signum, frame):
+    logging.info("Shutting down...")
+    # TODO: Add a a way to stop DockWorkers
+    for listener in Listener.tracker:
+        listener.stop()
+        listener.join()
+
 if __name__ == "__main__":
     env = get_env()
+
+    signal(SIGTERM, stop_handler)
+    signal(SIGINT, stop_handler)
 
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
     
     update_event = threading.Event()
-    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'cname::*'), cname_cb, )
+    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), connection_cb)
     listener.start()
