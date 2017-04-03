@@ -16,19 +16,48 @@ logging.basicConfig(level=logging.DEBUG)
 # a temp global to be replaced
 COMPOSE_FILE="./challenges/arp_spoof/docker-compose.yml"
 
-class IpCmd:
+class Cmd:
+    def __init__(self):
+        self.args = ['true']
+
+    def __str__(self):
+        return "<{} '{}'>".format(self.__class__.__name__, " ".join(self.args))
+
+    def run(self):
+        logging.debug("Launching '{}'".format(self))
+        try:
+            subprocess.run(self.args, check=True)
+        except:
+            logging.error("Failed to carry out BrctlCmd task")
+            raise
+
+class IpCmd(Cmd):
     """
     Kicks off and monitors ip commands
     """
     pass
 
-class BrctlCmd:
+class BrctlCmd(Cmd):
     """
     Kicks off and monitors brctl commands
     """
-    pass
+    class Action(Enum):
+        ADDIF = 1
+        DELIF = 2
 
-class ComposeCmd:
+    def __init__(self, action, bridge, interface):
+        self.action = action
+        self.bridge = bridge
+        self.interface = interface
+
+        self.args = ['brctl']
+        if self.action == BrctlCmd.Action.ADDIF: 
+            self.args.append('addif')
+        if self.action == BrctlCmd.Action.DELIF: 
+            self.args.append('delif')
+        self.args.extend(bridge, interface)
+       
+class ComposeCmd(Cmd):
     """
     Kicks off and monitors docker-compose commands
     """
@@ -46,35 +75,29 @@ class ComposeCmd:
         self.build = build
         self.subproc = None
 
-    def run(self):
-        try:
-            logging.debug("Starting ComposeCmd {}".format(self))
-            args = ['docker-compose']
-            if self.project:
-                args.append('-p')
-                args.append(self.project)
-            if self.composefile:
-                args.append('-f')
-                args.append(self.composefile)
+        def __str__(self):
+            return "<BrctlCmd '{}'>".format(" ".join(self.args))
 
-            if self.action == ComposeCmd.Action.UP:
-                args.append('up')
-                if self.detach:
-                    args.append('-d')
-                if self.build:
-                    args.append('--build')
+        self.args = ['docker-compose']
+        if self.project:
+            self.args.append('-p')
+            self.args.append(self.project)
+        if self.composefile:
+            self.args.append('-f')
+            self.args.append(self.composefile)
 
-            elif self.action == ComposeCmd.Action.DOWN:
-                args.append('down')
+        if self.action == ComposeCmd.Action.UP:
+            self.args.append('up')
+            if self.detach:
+                self.args.append('-d')
+            if self.build:
+                self.args.append('--build')
 
-            elif self.action == ComposeCmd.Action.STOP:
-                args.append('stop')
+        elif self.action == ComposeCmd.Action.DOWN:
+            self.args.append('down')
 
-            logging.debug("Issuing command '{}'".format(' '.join(args)))
-            subprocess.run(args, check=True)
-        except:
-            logging.error("Failed to carry out ComposeCmd task")
-            raise
+        elif self.action == ComposeCmd.Action.STOP:
+            self.args.append('stop')
 
 
 keyspace_pattern = "__keyspace@{:d}__:{:s}"
