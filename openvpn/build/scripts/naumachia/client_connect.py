@@ -5,20 +5,19 @@ It is called under the OpenVPN --client-connect option
 When called this script adds the new user to the DB and chooses a vlan for this user
 """
 
+from common import get_env
+from register_vpn import register_vpn
 from argparse import ArgumentParser
 from redis import StrictRedis
 from uuid import uuid4
-import os
 import logging
 import random
-import yaml
 
 logging.basicConfig(level=logging.DEBUG)
 
 CCTEMPLATE = """
 vlan-pvid {vlan:d}
 """
-ENVFILE = '/env.yaml'
 
 def parse_args():
     parser = ArgumentParser(description="Registers a new VPN user to the Redis DB and writes to the file passed in with the client specifiec configuration, whch sets the VLAN associated with this user")
@@ -26,27 +25,12 @@ def parse_args():
 
     return parser.parse_args()
 
-def get_env():
-    env = {}
-    yamlenv = {}
-    with open(ENVFILE, 'r') as f:
-        yamlenv = yaml.safe_load(f)
-
-    env['REDIS_HOSTNAME'] = yamlenv.get('redis_hostname', 'redis')
-    env['REDIS_DB'] = int(yamlenv.get('redis_db', '0'))
-    env['REDIS_PORT'] = int(yamlenv.get('redis_port', '6379'))
-    env['HOSTNAME'] = yamlenv.get('hostname')
-
-    env['COMMON_NAME'] = os.getenv('common_name')
-    env['TRUSTED_IP'] = os.getenv('trusted_ip')
-    env['TRUSTED_PORT'] = os.getenv('trusted_port')
-    return env
-
-if __name__ == "__main__":
-    args = parse_args()
+def client_connect(ccname):
     env = get_env()
-
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
+
+    if not redis.sismember('vpns', env['HOSTNAME']):
+        register_vpn()
 
     vlan = None
     user_id = redis.hget('cnames', env['COMMON_NAME']) 
@@ -88,3 +72,7 @@ if __name__ == "__main__":
 
     with open(args.ccname, 'w') as ccfile:
         ccfile.write(CCTEMPLATE.format(vlan=vlan))
+
+if __name__ == "__main__":
+    args = parse_args()
+    client_connect(args.ccname)

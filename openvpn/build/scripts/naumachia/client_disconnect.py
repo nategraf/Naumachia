@@ -5,34 +5,14 @@ It is called under the OpenVPN --client-disconnect option
 When called this script will clean up the DB entries made by client-connect
 """
 
+from common import get_env
 from redis import StrictRedis
-import os
 import logging
-import yaml
 
 logging.basicConfig(level=logging.DEBUG)
 
-ENVFILE = '/env.yaml'
-
-def get_env():
-    env = {}
-    yamlenv = {}
-    with open(ENVFILE, 'r') as f:
-        yamlenv = yaml.safe_load(f)
-
-    env['REDIS_HOSTNAME'] = yamlenv.get('redis_hostname', 'redis')
-    env['REDIS_DB'] = int(yamlenv.get('redis_db', '0'))
-    env['REDIS_PORT'] = int(yamlenv.get('redis_port', '6379'))
-    env['HOSTNAME'] = yamlenv.get('hostname')
-
-    env['COMMON_NAME'] = os.getenv('common_name')
-    env['TRUSTED_IP'] = os.getenv('trusted_ip')
-    env['TRUSTED_PORT'] = os.getenv('trusted_port')
-    return env
-
-if __name__ == "__main__":
+def client_disconnect():
     env = get_env()
-
     client = '{TRUSTED_IP}:{TRUSTED_PORT}'.format(**env)
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
 
@@ -49,3 +29,6 @@ if __name__ == "__main__":
         redis.hdel('connections', client)
     else:
         logging.warn("Connection {} removed from Redis prior to disconnect".format(client))
+
+if __name__ == "__main__":
+    client_disconnect()

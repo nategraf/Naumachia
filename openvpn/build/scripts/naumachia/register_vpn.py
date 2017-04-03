@@ -3,22 +3,13 @@
 Registers this OpenVPN conatainer with the Redis DB so the cluster manager can find it and the veth which is speaks through
 """
 
+from common import get_env
 from redis import StrictRedis
-import os
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
-
-def get_env():
-    env = {}
-    env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
-    env['REDIS_DB'] = int(os.getenv('REDIS_DB', '0'))
-    env['REDIS_PORT'] = int(os.getenv('REDIS_PORT', '6379'))
-    env['HOSTNAME'] = os.getenv('HOSTNAME')
-    env['NAUM_VETHHOST'] = os.getenv('NAUM_VETHHOST')
-    return env
-
-if __name__ == "__main__":
+    
+def register_vpn():
     env = get_env()
 
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
@@ -28,5 +19,7 @@ if __name__ == "__main__":
     }
     
     redis.sadd('vpns', env['HOSTNAME'])
-    for key, value in vpn.items():
-        redis.hset('vpn:'+env['HOSTNAME'], key, value)
+    redis.hmset('vpn:'+env['HOSTNAME'], key, value)
+
+if __name__ == "__main__":
+    register_vpn()
