@@ -8,12 +8,11 @@
 # Define the name of the TAP interface.
 # for example tap="tap0".
 tap="tap0"
-vethlocal="veth0"
-vethhost="veth${HOSTNAME:0:8}" # Needs to be unique on the docker host
+vethlocal="vth0"
+vethhost="vth${HOSTNAME:0:12}" # Needs to be unique on the docker host
 
 # Create the veth pair and throw one end of the can and string to the host
 ip link add $vethlocal type veth peer name $vethhost
-ip link set $vethhost netns host
 
 # Make the basic tunnel device for OpenVPN to use
 mkdir /dev/net/
@@ -24,6 +23,7 @@ openvpn --mktun --dev "$tap"
 ifconfig "$tap" 0.0.0.0 promisc up
 
 ifconfig $vethlocal 0.0.0.0 promisc up
+ip link set $vethhost netns host
 
 # Use traffic control to redirect all ingress packets on tap0 to the veth port directed at the challenge network, and vice versa. 
 # Allows the forwarding of traffic without inserting an L2 device
@@ -46,12 +46,14 @@ printf "\
 redis_hostname: ${REDIS_HOSTNAME}\n\
 redis_db: ${REDIS_DB}\n\
 redis_port: ${REDIS_PORT}\n\
+redis_password: ${REDIS_PASSWORD}\n\
 hostname: ${HOSTNAME}\n\
 naum_vethhost: ${vethhost}\n\
 " > env.yaml
 chmod 644 env.yaml
+chown nobody:nobody env.yaml
 
-/scripts/naumachia/register-vpn
+/scripts/naumachia/register_vpn.py
 
-echo "tc-start complete: now running $@"
+echo "naumachia-start complete: now running $@"
 exec "$@"

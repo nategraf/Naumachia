@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG)
 def client_disconnect():
     env = get_env()
     client = '{TRUSTED_IP}:{TRUSTED_PORT}'.format(**env)
-    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
+    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
 
     connection_id = redis.hget('connections', client)
     if connection_id:

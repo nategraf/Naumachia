@@ -12,14 +12,15 @@ logging.basicConfig(level=logging.DEBUG)
 def register_vpn():
     env = get_env()
 
-    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
+    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
 
     vpn = {
-        "veth" : env['NAUM_VETHHOST']
+        "veth" : env['NAUM_VETHHOST'],
+        "veth_state" : 'down'
     }
     
     redis.sadd('vpns', env['HOSTNAME'])
-    redis.hmset('vpn:'+env['HOSTNAME'], key, value)
+    redis.hmset('vpn:'+env['HOSTNAME'], vpn)
 
 if __name__ == "__main__":
     register_vpn()

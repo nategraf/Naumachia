@@ -21,5 +21,5 @@ RUN pip3 install redis pyyaml
 COPY ./scripts /scripts
 RUN chmod +x /scripts/*
 
-ENTRYPOINT ["naumachia-start"]
+ENTRYPOINT ["/scripts/naumachia-start"]
 CMD ["ovpn_run"]

@@ -17,6 +17,8 @@ services:
             args:
                 - OVPN_REPO_URL
                 - OVPN_REPO_BRANCH
+        depends_on:
+            - redis
         volumes:
             - ./openvpn/config:/etc/openvpn
             - /var/run/docker/netns/default:/var/run/netns/host
@@ -32,6 +34,7 @@ services:
             - REDIS_HOSTNAME
             - REDIS_PORT
             - REDIS_DB
+            - REDIS_PASSWORD
 
     redis:
         image: "redis:alpine"
@@ -45,6 +48,8 @@ services:
 
     cluster-manager:
         build: ./cluster-manager/build
+        depends_on:
+            - redis
         networks: 
             internal:
         volumes:
@@ -55,23 +60,12 @@ services:
         command: [python3, /app/cluster-manager.py]
         environment:
             - REDIS_HOSTNAME
+            - REDIS_PORT
+            - REDIS_DB
+            - REDIS_PASSWORD
         privileged: true
 
 
 networks:
-    default:
-        driver: bridge
-        ipam:
-            config:
-                - subnet: 10.0.200.0/24
-                  ip_range: 10.0.200.128/25
-                  gateway: 10.0.200.1
-
     internal:
-        driver: bridge
-        ipam:
-            config:
-                - subnet: 10.0.50.0/24
-                  ip_range: 10.0.50.128/25
-                  gateway: 10.0.50.1
         internal: true

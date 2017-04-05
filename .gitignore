@@ -11,3 +11,6 @@ lib64
 pip-selfcheck.json
 pyvenv.cfg
 share
+
+*.pyc
+__pycache__

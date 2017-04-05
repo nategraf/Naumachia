@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from redis import StrictRedis
-from enum import Enum
 from uuid import uuid4
 from signal import signal, SIGTERM, SIGINT
 import os
@@ -9,12 +8,19 @@ import threading
 import sys
 import re
 import logging
+from subprocess import CalledProcessError
 import subprocess
+import docker
 
 logging.basicConfig(level=logging.DEBUG)
 
 # a temp global to be replaced
 COMPOSE_FILE="./challenges/arp_spoof/docker-compose.yml"
+
+def vlan_if_name(interface, vlan):
+    # Create the name for the VLAN subinterface.
+    # Must be less than or equal to 15 chars
+    return interface[:10]+'.'+str(vlan)
 
 class Cmd:
     def __init__(self):
@@ -28,43 +34,84 @@ class Cmd:
         try:
             subprocess.run(self.args, check=True)
         except:
-            logging.error("Failed to carry out BrctlCmd task")
+            logging.error("Failed to carry out {}".format(self.__class__.__name__))
             raise
 
-class IpCmd(Cmd):
+class LinkUpCmd(Cmd):
     """
-    Kicks off and monitors ip commands
+    Kicks off and monitos an 'ip link * set up' command to bring up and interface 
     """
-    pass
+    def __init__(self, interface, promisc=True):
+        self.interface = interface
+        self.promisc = promisc
+
+        self.args = ['ip', 'netns', 'exec', 'host']
+        self.args.extend(('ip', 'link', 'set', interface))
+        if self.promisc:
+            self.args.extend(('promisc', 'on'))
+        self.args.append('up')
+
+class VlanCmd(Cmd):
+    """
+    Kicks off and monitors 'ip link' commands to add or delete a vlan subinterface
+    """
+    ADD = 1
+    DEL = 2
+    SHOW = 3
+
+    def __init__(self, action, interface, vlan):
+        self.interface = interface
+        self.vlan = vlan
+        
+        self.vlan_if = vlan_if_name(interface, vlan)
+
+        self.args = ['ip', 'netns', 'exec', 'host', 'ip', 'link']
+        if action == VlanCmd.ADD:
+            self.args.append('add')
+            self.args.extend(('link', interface))
+            self.args.extend(('name', self.vlan_if))
+            self.args.extend(('type', 'vlan'))
+            self.args.extend(('id', str(vlan)))
+        elif action == VlanCmd.DEL:
+           self.args.extend(('del', self.vlan_if))
+        elif action == VlanCmd.SHOW:
+           self.args.extend(('show', self.vlan_if))
+
+    def run(self):
+        logging.debug("Launching '{}'".format(self))
+        try:
+            subprocess.run(self.args, check=True)
+        except:
+            logging.error("Failed to carry out VlanCmd task")
+            raise
+        LinkUpCmd(self.vlan_if).run()
 
 class BrctlCmd(Cmd):
     """
     Kicks off and monitors brctl commands
     """
-    class Action(Enum):
-        ADDIF = 1
-        DELIF = 2
+    ADDIF = 1
+    DELIF = 2
 
     def __init__(self, action, bridge, interface):
         self.action = action
         self.bridge = bridge
         self.interface = interface
 
-        self.args = ['brctl']
-        if self.action == BrctlCmd.Action.ADDIF: 
+        self.args = ['ip', 'netns', 'exec', 'host', 'brctl']
+        if self.action == BrctlCmd.ADDIF: 
             self.args.append('addif')
-        if self.action == BrctlCmd.Action.DELIF: 
+        elif self.action == BrctlCmd.DELIF: 
             self.args.append('delif')
-        self.args.extend(bridge, interface)
+        self.args.extend((bridge, interface))
        
 class ComposeCmd(Cmd):
     """
     Kicks off and monitors docker-compose commands
     """
-    class Action(Enum):
-        UP = 1
-        STOP = 2
-        DOWN = 3
+    UP = 1
+    STOP = 2
+    DOWN = 3
 
     def __init__(self, action, project=None, detach=True, composefile=None, build=False):
         self.action = action
@@ -75,9 +122,6 @@ class ComposeCmd(Cmd):
         self.build = build
         self.subproc = None
 
-        def __str__(self):
-            return "<BrctlCmd '{}'>".format(" ".join(self.args))
-
         self.args = ['docker-compose']
         if self.project:
             self.args.append('-p')
@@ -86,21 +130,20 @@ class ComposeCmd(Cmd):
             self.args.append('-f')
             self.args.append(self.composefile)
 
-        if self.action == ComposeCmd.Action.UP:
+        if self.action == ComposeCmd.UP:
             self.args.append('up')
             if self.detach:
                 self.args.append('-d')
             if self.build:
                 self.args.append('--build')
 
-        elif self.action == ComposeCmd.Action.DOWN:
+        elif self.action == ComposeCmd.DOWN:
             self.args.append('down')
 
-        elif self.action == ComposeCmd.Action.STOP:
+        elif self.action == ComposeCmd.STOP:
             self.args.append('stop')
 
 
-keyspace_pattern = "__keyspace@{:d}__:{:s}"
 
 class Listener(threading.Thread):
     """
@@ -108,10 +151,9 @@ class Listener(threading.Thread):
     Based on https://gist.github.com/jobliz/2596594
     """
 
-    def __init__(self, redis, channel, worker=None):
+    def __init__(self, channel, worker=None):
         threading.Thread.__init__(self)
-        self.redis = redis
-        self.pubsub = self.redis.pubsub()
+        self.pubsub = redis.pubsub()
         self.pubsub.psubscribe(channel)
         self.worker = worker
         self.stop_event = threading.Event()
@@ -121,7 +163,7 @@ class Listener(threading.Thread):
     def dispatch(self, item):
         logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
         if self.worker and item['data'] != 1:
-            self.worker(redis, item['channel'].decode("utf-8"), item['data'].decode("utf-8")).start()
+            self.worker(item['channel'].decode("utf-8"), item['data'].decode("utf-8")).start()
 
     def stop(self):
         self.pubsub.punsubscribe()
@@ -135,19 +177,17 @@ class Listener(threading.Thread):
             else:
                 self.dispatch(item)
 
-class ConnectionWorker(threading.Thread):
+class ClusterWorker(threading.Thread):
     """
-    A worker to handle whenever a connection is established or torn down
+    A worker to handle starting and stopping clusters when a connection spins up or down
     """
-    def __init__(self, redis, channel, action):
+    def __init__(self, channel, action):
         threading.Thread.__init__(self)
-        self.redis = redis
         self.channel = channel
         self.action = action
 
     def run(self):
         if self.action == 'hset':
-            redis = self.redis
             m = re.search(r'connection:(.*)', self.channel)
             key = m.group(0)
             connection_id = m.group(1)
@@ -163,16 +203,35 @@ class ConnectionWorker(threading.Thread):
 
             if connection_alive:
                 if user_status == 'active':
-                    cluster_status = redis.hget('clusters', user_id)
+                    cluster_status = redis.get('cluster:'+user_id)
                     if cluster_status and cluster_status.decode('utf-8') == 'up':
                         logging.info("New connection {} to exsiting cluster for user {}"
                                      .format(connection_id, user_id))
                     else:
-                        ComposeCmd(ComposeCmd.Action.UP, project=user_id, composefile=COMPOSE_FILE).run()
+                        ComposeCmd(ComposeCmd.UP, project=user_id, composefile=COMPOSE_FILE).run()
 
-                        redis.hset('clusters', user_id, 'up')
-                        logging.info("New cluster for user {} on new connection {}"
-                                     .format(user_id, connection_id))
+                        if cluster_status and cluster_status.decode('utf-8') == 'stopped':
+                            logging.info("Starting cluster for user {} on new connection {}"
+                                         .format(user_id, connection_id))
+                        else:
+                            logging.info("New cluster for user {} on new connection {}"
+                                         .format(user_id, connection_id))
+                        redis.set('cluster:'+user_id, 'up')
+
+                        # Bridge in the vlan interface if it is ready to go
+                        vpn_id = redis.hget(key, 'vpn').decode('utf-8')
+                        vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
+                        link_state = redis.hget('vpn:'+vpn_id+':links', vlan)
+                        if link_state and link_state.decode('utf-8') == 'up':
+                            bridge_id = get_bridge_id(user_id)
+                            veth = redis.hget('vpn:'+vpn_id, 'veth').decode('utf-8')
+                            vlan_if = vlan_if_name(veth, vlan)
+                            BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
+                            redis.hset('vpn:'+vpn_id+':links', vlan, 'bridged')
+                            logging.info("Added {} to bridge {} for cluster {}"
+                                         .format(vlan_if, bridge_id, user_id))
+
+
 
                 else:
                     raise ValueError("Invalid state {} for user {}".format(user_status, user_id))
@@ -183,12 +242,12 @@ class ConnectionWorker(threading.Thread):
                                      .format(connection_id, user_id))
 
                 if user_status == 'disconnected':
-                    cluster_status = redis.hget('clusters', user_id)
+                    cluster_status = redis.get('cluster:'+user_id)
                     if cluster_status:
                         if cluster_status != 'stopped':
-                            ComposeCmd(ComposeCmd.Action.STOP, project=user_id, composefile=COMPOSE_FILE).run()
+                            ComposeCmd(ComposeCmd.STOP, project=user_id, composefile=COMPOSE_FILE).run()
                             logging.info("Stopping cluster for user {}".format(user_id))
-                            cluster_status = redis.hset('clusters', user_id, 'stopped')
+                            cluster_status = redis.set('cluster:'+user_id, 'stopped')
 
                         else:
                             logging.info("No action for already stopped cluster for user {}".format(user_id))
@@ -197,6 +256,96 @@ class ConnectionWorker(threading.Thread):
 
                 redis.delete(key)
 
+def ensure_veth_up(vpn_id, verbose=False):
+    """
+    Assumes existance of vpn DB entry
+    """
+    key = 'vpn:'+vpn_id
+    veth_state = redis.hget(key, 'veth_state')
+    veth = redis.hget(key, 'veth').decode('utf-8')
+    if veth_state == None or veth_state.decode('utf-8') == 'down':
+        LinkUpCmd(veth).run()
+        redis.hset(key, 'veth_state', 'up')
+        logging.info("Set veth {} on vpn tunnel {} up".format(veth, vpn_id))
+
+    else:
+        if verbose:
+            logging.info("veth {} on vpn tunnel {} already up.".format(veth, vpn_id))
+
+class VethWorker(threading.Thread):
+    """
+    A worker to bring the host side interface online when a vpn tunnel comes up
+    """
+    def __init__(self, channel, action):
+        threading.Thread.__init__(self)
+        self.channel = channel
+        self.action = action
+
+    def run(self):
+        if self.action == 'hset':
+            m = re.search(r'vpn:(.*)', self.channel)
+            key = m.group(0)
+            vpn_id = m.group(1)
+
+            ensure_veth_up(vpn_id, True)
+
+class VlanWorker(threading.Thread):
+    """
+    A worker to handle starting and stopping clusters when a connection spins up or down
+    """
+    def __init__(self, channel, action):
+        threading.Thread.__init__(self)
+        self.channel = channel
+        self.action = action
+
+    def run(self):
+        if self.action == 'hset':
+            m = re.search(r'connection:(.*)', self.channel)
+            key = m.group(0)
+            connection_id = m.group(1)
+
+            connection_state = redis.hget(key, 'alive')
+            if connection_state and connection_state.decode('utf-8') == 'yes':
+                user_id = redis.hget(key, 'user').decode('utf-8')
+                vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
+                vpn_id = redis.hget(key, 'vpn').decode('utf-8')
+
+                ensure_veth_up(vpn_id)
+
+                veth = redis.hget('vpn:'+vpn_id, 'veth').decode('utf-8')
+                link_status = redis.hget('vpn:'+vpn_id+':links', vlan)
+                if link_status and link_status.decode('utf-8') == 'bridged':
+                    logging.info("New connection {} traversing existing vlan link {}"
+                                 .format(connection_id, vlan_if_name(veth, vlan)))
+
+                else:
+                    if link_status == None or link_status.decode('utf-8') == 'down':
+                        try:
+                            VlanCmd(VlanCmd.ADD, veth, vlan).run()
+                            logging.info("New vlan link {}:{}".format(vpn_id, vlan))
+                        except CalledProcessError as e:
+                            if e.returncode != 2:
+                                raise
+
+                            # Raises a CalledProcessError is the link doesn't exist
+                            VlanCmd(VlanCmd.SHOW, veth, vlan).run()
+                            logging.warn("Unrecorded exsting link {}:{}".format(vpn_id, vlan))
+
+                        redis.hset('vpn:'+vpn_id+':links', vlan, 'up')
+                    
+                    vlan_if = vlan_if_name(veth, vlan)
+                    cluster_state = redis.get('cluster:'+user_id)
+                    if cluster_state:
+                        bridge_id = get_bridge_id(user_id)
+                        BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
+                        redis.hset('vpn:'+vpn_id+':links', vlan, 'bridged')
+                        logging.info("Added {} to bridge {} for cluster {}"
+                                     .format(vlan_if, bridge_id, user_id))
+
+                    else:
+                        logging.info("Cluster {} not up. Defering addition of {} to a bridge"
+                                     .format(user_id, vlan_if))
+
 def get_env():
     env = {}
     env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
@@ -204,20 +353,36 @@ def get_env():
     env['REDIS_DB'] = int(env['REDIS_DB'])
     env['REDIS_PORT'] = os.getenv('REDIS_PORT', '6379')
     env['REDIS_PORT'] = int(env['REDIS_PORT'])
+    env['REDIS_PASSWORD'] = os.getenv('REDIS_PASSWORD')
     return env
+
+def get_bridge_id(cluster_id):
+    netlist = dockerc.networks.list(names=[cluster_id+'_default'])
+    if not netlist:
+        raise ValueError("No default network is up for {}".format(cluster_id))
+    return 'br-'+netlist[0].id[:12]
 
 def stop_handler(signum, frame):
     #TODO: Implement this
     logging.info("Shutting down...")
 
 if __name__ == "__main__":
+    global redis 
+    global dockerc
+
     env = get_env()
 
     signal(SIGTERM, stop_handler)
     signal(SIGINT, stop_handler)
 
-    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'])
+    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
+    dockerc = docker.from_env()
     
     update_event = threading.Event()
-    listener = Listener(redis, keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), ConnectionWorker)
-    listener.start()
+    listeners=[]
+    keyspace_pattern = "__keyspace@{:d}__:{:s}"
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), ClusterWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), VlanWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'vpn:'+'?'*12), VethWorker))
+    for listener in listeners:
+        listener.start()
