@@ -16,3 +16,7 @@ services:
             - CTF_FLAG=67afB27edB18Fe33
         cap_add:
             - NET_ADMIN
+
+networks:
+    default:
+        internal: true

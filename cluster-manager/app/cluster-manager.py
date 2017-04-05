@@ -3,6 +3,7 @@
 from redis import StrictRedis
 from uuid import uuid4
 from signal import signal, SIGTERM, SIGINT
+from collections import Iterable
 import os
 import threading
 import sys
@@ -15,7 +16,7 @@ import docker
 logging.basicConfig(level=logging.DEBUG)
 
 # a temp global to be replaced
-COMPOSE_FILE="./challenges/arp_spoof/docker-compose.yml"
+COMPOSE_FILES=["./challenges/arp_spoof/docker-compose.yml", "./challenges/common/docker-compose.yml"]
 
 def vlan_if_name(interface, vlan):
     # Create the name for the VLAN subinterface.
@@ -113,22 +114,28 @@ class ComposeCmd(Cmd):
     STOP = 2
     DOWN = 3
 
-    def __init__(self, action, project=None, detach=True, composefile=None, build=False):
+    def __init__(self, action, project=None, detach=True, composefiles=None, build=False):
         self.action = action
         self.project = project
         self.action = action
         self.detach = detach
-        self.composefile = composefile
         self.build = build
         self.subproc = None
+        # Determine if compose files is one string or an iterable of them
+        if not isinstance(composefiles, str) and isinstance(composefiles, Iterable):
+            self.composefiles = composefiles
+        else:
+            self.composefiles = [composefiles]
 
         self.args = ['docker-compose']
         if self.project:
             self.args.append('-p')
             self.args.append(self.project)
-        if self.composefile:
-            self.args.append('-f')
-            self.args.append(self.composefile)
+
+        if self.composefiles:
+            for cf in self.composefiles:
+                self.args.append('-f')
+                self.args.append(cf)
 
         if self.action == ComposeCmd.UP:
             self.args.append('up')
@@ -208,7 +215,7 @@ class ClusterWorker(threading.Thread):
                         logging.info("New connection {} to exsiting cluster for user {}"
                                      .format(connection_id, user_id))
                     else:
-                        ComposeCmd(ComposeCmd.UP, project=user_id, composefile=COMPOSE_FILE).run()
+                        ComposeCmd(ComposeCmd.UP, project=user_id, composefiles=COMPOSE_FILES).run()
 
                         if cluster_status and cluster_status.decode('utf-8') == 'stopped':
                             logging.info("Starting cluster for user {} on new connection {}"
@@ -245,7 +252,7 @@ class ClusterWorker(threading.Thread):
                     cluster_status = redis.get('cluster:'+user_id)
                     if cluster_status:
                         if cluster_status != 'stopped':
-                            ComposeCmd(ComposeCmd.STOP, project=user_id, composefile=COMPOSE_FILE).run()
+                            ComposeCmd(ComposeCmd.STOP, project=user_id, composefiles=COMPOSE_FILES).run()
                             logging.info("Stopping cluster for user {}".format(user_id))
                             cluster_status = redis.set('cluster:'+user_id, 'stopped')
 
