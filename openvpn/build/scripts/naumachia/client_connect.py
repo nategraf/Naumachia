@@ -9,7 +9,7 @@ from common import get_env
 from register_vpn import register_vpn
 from argparse import ArgumentParser
 from redis import StrictRedis
-from uuid import uuid4
+import hashlib
 import logging
 import random
 
@@ -50,7 +50,7 @@ def client_connect(ccname):
             "cn": env['COMMON_NAME'],
             "status": 'active'
         }
-        user_id = uuid4().hex
+        user_id = hashlib.sha256(env['COMMON_NAME'].encode('utf-8')).hexdigest()
         redis.hmset('user:'+user_id, user)
 
         redis.hset('cnames', env['COMMON_NAME'], user_id)
@@ -63,7 +63,7 @@ def client_connect(ccname):
         "user": user_id,
         "alive": 'yes'
     }
-    connection_id = uuid4().hex
+    connection_id = '{ip}.{port}'.format(**connection)
     redis.hmset('connection:'+connection_id, connection)
     redis.hset('connections', '{ip}:{port}'.format(**connection), connection_id)
     redis.sadd('user:'+user_id+':connections', connection_id)
