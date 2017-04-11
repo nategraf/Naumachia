@@ -1,0 +1,31 @@
+version: '2'
+
+services:
+    arthur:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=arthur
+
+    bedevere:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=bedevere
+
+    robin:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=robin
+
+    bridgekeeper:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=bridgekeeper
+            - KILL_MSG=Fool!
+
+networks:
+    default:
+        internal: true
