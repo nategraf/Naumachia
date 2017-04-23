@@ -5,8 +5,6 @@ services:
         build: ./bob
         environment:
             - CTF_FLAG=67afB27edB18Fe33
-        cap_add:
-            - NET_ADMIN
 
     alice:
         build: ./alice
@@ -14,9 +12,9 @@ services:
             - bob
         environment:
             - CTF_FLAG=67afB27edB18Fe33
-        cap_add:
-            - NET_ADMIN
 
 networks:
     default:
+        driver_opts:
+            com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
         internal: true
