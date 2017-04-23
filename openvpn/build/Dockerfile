@@ -18,8 +18,5 @@ RUN apk del autoconf automake libtool openssl-dev linux-pam-dev net-tools linux-
 
 RUN pip3 install redis pyyaml
 
-COPY ./scripts /scripts
-RUN chmod +x /scripts/*
-
 ENTRYPOINT ["/scripts/naumachia-start"]
 CMD ["ovpn_run"]

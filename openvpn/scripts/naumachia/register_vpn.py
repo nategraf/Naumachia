@@ -16,7 +16,8 @@ def register_vpn():
 
     vpn = {
         "veth" : env['NAUM_VETHHOST'],
-        "veth_state" : 'down'
+        "veth_state" : 'down',
+        "files" : env['NAUM_FILES']
     }
     
     redis.sadd('vpns', env['HOSTNAME'])

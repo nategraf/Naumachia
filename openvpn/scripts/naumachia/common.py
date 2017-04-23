@@ -20,6 +20,7 @@ def get_env():
     env['REDIS_PASSWORD'] = yamlenv.get('redis_password', None)
     env['HOSTNAME'] = yamlenv.get('hostname')
     env['NAUM_VETHHOST'] = yamlenv.get('naum_vethhost')
+    env['NAUM_FILES'] = yamlenv.get('naum_files')
 
     env['COMMON_NAME'] = os.getenv('common_name')
     env['TRUSTED_IP'] = os.getenv('trusted_ip')
