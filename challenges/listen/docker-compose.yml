@@ -5,26 +5,37 @@ services:
         build: ./actor
         env_file: .env
         environment:
-            - CHARACTER=arthur
+            - CHARACTER=Arthur
 
     bedevere:
         build: ./actor
         env_file: .env
         environment:
-            - CHARACTER=bedevere
+            - CHARACTER=Bedevere
 
     robin:
         build: ./actor
         env_file: .env
         environment:
-            - CHARACTER=robin
+            - CHARACTER=Robin
 
     bridgekeeper:
         build: ./actor
         env_file: .env
         environment:
-            - CHARACTER=bridgekeeper
-            - KILL_MSG=Fool!
+            - CHARACTER=Bridgekeeper
+
+    lancelot:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=Lancelot
+
+    galahad:
+        build: ./actor
+        env_file: .env
+        environment:
+            - CHARACTER=Galahad
 
 networks:
     default:
