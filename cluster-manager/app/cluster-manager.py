@@ -12,11 +12,11 @@ import logging
 from subprocess import CalledProcessError
 import subprocess
 import docker
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 
-# a temp global to be replaced
-COMPOSE_FILES=["./challenges/arp_spoof/docker-compose.yml", "./challenges/common/docker-compose.yml"]
+CHALLENGE_FOLDER = './challenges'
 
 def vlan_if_name(interface, vlan):
     # Create the name for the VLAN subinterface.
@@ -134,6 +134,7 @@ class ComposeCmd(Cmd):
 
         if self.composefiles:
             for cf in self.composefiles:
+                cf = os.path.normpath(os.path.join(CHALLENGE_FOLDER, cf))
                 self.args.append('-f')
                 self.args.append(cf)
 
@@ -215,7 +216,11 @@ class ClusterWorker(threading.Thread):
                         logging.info("New connection {} to exsiting cluster for user {}"
                                      .format(connection_id, user_id))
                     else:
-                        ComposeCmd(ComposeCmd.UP, project=user_id, composefiles=COMPOSE_FILES).run()
+                        vpn_id = redis.hget(key, 'vpn').decode('utf-8')
+                        compose_json = redis.hget('vpn:'+vpn_id, 'files').decode('utf-8')
+                        logging.debug(compose_json)
+                        compose_files = json.loads(compose_json.replace("'",'"'))
+                        ComposeCmd(ComposeCmd.UP, project=user_id, composefiles=compose_files).run()
 
                         if cluster_status and cluster_status.decode('utf-8') == 'stopped':
                             logging.info("Starting cluster for user {} on new connection {}"
@@ -226,7 +231,6 @@ class ClusterWorker(threading.Thread):
                         redis.set('cluster:'+user_id, 'up')
 
                         # Bridge in the vlan interface if it is ready to go
-                        vpn_id = redis.hget(key, 'vpn').decode('utf-8')
                         vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
                         link_state = redis.hget('vpn:'+vpn_id+':links', vlan)
                         if link_state and link_state.decode('utf-8') == 'up':
@@ -252,7 +256,9 @@ class ClusterWorker(threading.Thread):
                     cluster_status = redis.get('cluster:'+user_id)
                     if cluster_status:
                         if cluster_status != 'stopped':
-                            ComposeCmd(ComposeCmd.STOP, project=user_id, composefiles=COMPOSE_FILES).run()
+                            vpn_id = redis.hget(key, 'vpn').decode('utf-8')
+                            compose_files = json.loads(redis.hget('vpn:'+vpn_id, 'files').decode('utf-8'))
+                            ComposeCmd(ComposeCmd.STOP, project=user_id, composefiles=compose_files).run()
                             logging.info("Stopping cluster for user {}".format(user_id))
                             cluster_status = redis.set('cluster:'+user_id, 'stopped')
 
