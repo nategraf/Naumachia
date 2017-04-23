@@ -11,30 +11,33 @@ services:
             - ./eve/config:/config
         privileged: true
 
-    openvpn:
-        build:
-            context: ./openvpn/build
-            args:
-                - OVPN_REPO_URL
-                - OVPN_REPO_BRANCH
-        depends_on:
-            - redis
+    openvpn-spoof:
+        extends:
+            file: openvpn-compose.yml
+            service: openvpn
         volumes:
-            - ./openvpn/config:/etc/openvpn
-            - /var/run/docker/netns/default:/var/run/netns/host
-            - ./openvpn/build/scripts:/scripts
+            - ./openvpn/config/arp_spoof:/etc/openvpn
         networks:
             default:
             internal:
         ports:
             - "1194:1194/udp"
-        cap_add:
-            - NET_ADMIN
         environment:
-            - REDIS_HOSTNAME
-            - REDIS_PORT
-            - REDIS_DB
-            - REDIS_PASSWORD
+            - NAUM_FILES=[arp_spoof/docker-compose.yml, common/docker-compose.yml]
+
+    openvpn-shout:
+        extends:
+            file: openvpn-compose.yml
+            service: openvpn
+        volumes:
+            - ./openvpn/config/shout:/etc/openvpn
+        networks:
+            default:
+            internal:
+        ports:
+            - "1195:1195/udp"
+        environment:
+            - NAUM_FILES=[listen/docker-compose.yml, common/docker-compose.yml]
 
     redis:
         image: "redis:alpine"

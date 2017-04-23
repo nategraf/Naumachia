@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+    openvpn:
+        build:
+            context: ./openvpn/build
+            args:
+                - OVPN_REPO_URL
+                - OVPN_REPO_BRANCH
+        volumes:
+            - ./openvpn/config/default:/etc/openvpn
+            - /var/run/docker/netns/default:/var/run/netns/host
+            - ./openvpn/scripts:/scripts:ro
+        cap_add:
+            - NET_ADMIN
+        environment:
+            - REDIS_HOSTNAME
+            - REDIS_PORT
+            - REDIS_DB
+            - REDIS_PASSWORD
