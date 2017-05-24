@@ -3,37 +3,33 @@ version: '2'
 services:
     arthur:
         build: ./actor
+        image: naumachia/actor
         env_file: .env
         environment:
             - CHARACTER=Arthur
 
     bedevere:
-        build: ./actor
-        env_file: .env
+        extends: arthur
         environment:
             - CHARACTER=Bedevere
 
     robin:
-        build: ./actor
-        env_file: .env
+        extends: arthur
         environment:
             - CHARACTER=Robin
 
     bridgekeeper:
-        build: ./actor
-        env_file: .env
+        extends: arthur
         environment:
             - CHARACTER=Bridgekeeper
 
     lancelot:
-        build: ./actor
-        env_file: .env
+        extends: arthur
         environment:
             - CHARACTER=Lancelot
 
     galahad:
-        build: ./actor
-        env_file: .env
+        extends: arthur
         environment:
             - CHARACTER=Galahad
 
