@@ -11,26 +11,26 @@ services:
             - ./eve/config:/config
         privileged: true
 
-    openvpn-spoof:
+    openvpn-mitm:
         extends:
             file: openvpn-compose.yml
             service: openvpn
         volumes:
-            - ./openvpn/config/arp_spoof:/etc/openvpn
+            - ./openvpn/config/mitm:/etc/openvpn
         networks:
             default:
             internal:
         ports:
             - "1194:1194/udp"
         environment:
-            - NAUM_FILES=[arp_spoof/docker-compose.yml, common/docker-compose.yml]
+            - NAUM_FILES=[mitm/docker-compose.yml, common/docker-compose.yml]
 
-    openvpn-shout:
+    openvpn-listen:
         extends:
             file: openvpn-compose.yml
             service: openvpn
         volumes:
-            - ./openvpn/config/shout:/etc/openvpn
+            - ./openvpn/config/listen:/etc/openvpn
         networks:
             default:
             internal:
