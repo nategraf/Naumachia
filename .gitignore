@@ -1,9 +1,10 @@
 **/db/mysql/**
 .*.swp
-**/pki/**
 
 openvpn/config/ccd/*
 eve/config/*.ovpn
+**/pki/**
+*.pem
 
 bin
 lib
@@ -14,3 +15,4 @@ share
 
 *.pyc
 __pycache__
+venv
