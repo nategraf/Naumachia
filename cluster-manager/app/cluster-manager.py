@@ -218,7 +218,6 @@ class ClusterWorker(threading.Thread):
                     else:
                         vpn_id = redis.hget(key, 'vpn').decode('utf-8')
                         compose_json = redis.hget('vpn:'+vpn_id, 'files').decode('utf-8')
-                        logging.debug(compose_json)
                         compose_files = json.loads(compose_json.replace("'",'"'))
                         ComposeCmd(ComposeCmd.UP, project=user_id, composefiles=compose_files).run()
 
@@ -257,7 +256,8 @@ class ClusterWorker(threading.Thread):
                     if cluster_status:
                         if cluster_status != 'stopped':
                             vpn_id = redis.hget(key, 'vpn').decode('utf-8')
-                            compose_files = json.loads(redis.hget('vpn:'+vpn_id, 'files').decode('utf-8'))
+                            compose_json = redis.hget('vpn:'+vpn_id, 'files').decode('utf-8')
+                            compose_files = json.loads(compose_json.replace("'",'"'))
                             ComposeCmd(ComposeCmd.STOP, project=user_id, composefiles=compose_files).run()
                             logging.info("Stopping cluster for user {}".format(user_id))
                             cluster_status = redis.set('cluster:'+user_id, 'stopped')
