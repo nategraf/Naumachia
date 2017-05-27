@@ -1,18 +1,19 @@
-**/db/mysql/**
 .*.swp
+.*.swo
 
-openvpn/config/ccd/*
 eve/config/*.ovpn
-**/pki/**
+**/pki/*
 *.pem
-
-bin
-lib
-lib64
-pip-selfcheck.json
-pyvenv.cfg
-share
 
 *.pyc
 __pycache__
 venv
+
+docker-compose.yml
+config.yml
+
+challenges/*
+!challenges/example
+!challenges/common
+openvpn/config/*
+!openvpn/config/example
