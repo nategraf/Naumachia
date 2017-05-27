@@ -3,11 +3,13 @@ version: '2'
 services:
     bob:
         build: ./bob
+        image: naumachia/example/bob
         environment:
             - CTF_FLAG=FOOBAR
 
     alice:
         build: ./alice
+        image: naumachia/example/alice
         depends_on:
             - bob
         environment:
