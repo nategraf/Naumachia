@@ -38,9 +38,19 @@ class Cmd:
             logging.error("Failed to carry out {}".format(self.__class__.__name__))
             raise
 
+class IpFlushCmd(Cmd):
+    """
+    Kicks off and monitors an 'ip addr flush dev *' to remove all IP addresses from an interface 
+    """
+    def __init__(self, interface):
+        self.interface = interface
+
+        self.args = ['ip', 'netns', 'exec', 'host']
+        self.args.extend(('ip', 'addr', 'flush', interface))
+
 class LinkUpCmd(Cmd):
     """
-    Kicks off and monitos an 'ip link * set up' command to bring up and interface 
+    Kicks off and monitors an 'ip link * set up' command to bring up and interface 
     """
     def __init__(self, interface, promisc=True):
         self.interface = interface
@@ -232,14 +242,19 @@ class ClusterWorker(threading.Thread):
                         # Bridge in the vlan interface if it is ready to go
                         vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
                         link_state = redis.hget('vpn:'+vpn_id+':links', vlan)
+                        bridge_id = get_bridge_id(user_id)
                         if link_state and link_state.decode('utf-8') == 'up':
-                            bridge_id = get_bridge_id(user_id)
                             veth = redis.hget('vpn:'+vpn_id, 'veth').decode('utf-8')
                             vlan_if = vlan_if_name(veth, vlan)
                             BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
                             redis.hset('vpn:'+vpn_id+':links', vlan, 'bridged')
                             logging.info("Added {} to bridge {} for cluster {}"
                                          .format(vlan_if, bridge_id, user_id))
+
+                        # Strip the IP address form the bridge to prevent host attacks. 
+                        # Optional in the future
+                        IpFlushCmd(bridge_id).run()
+
 
 
 
