@@ -1,6 +1,7 @@
 version: '2'
 
 services:
+    {% if DEBUG -%}
     eve:
         build: ./eve/build
         networks:
@@ -11,34 +12,23 @@ services:
             - ./eve/config:/config
         privileged: true
 
-    openvpn-mitm:
+    {% endif -%}
+    {% for chal in challenges -%}
+    openvpn-{{ chal.short_name }}:
         extends:
             file: openvpn-compose.yml
             service: openvpn
         volumes:
-            - ./openvpn/config/mitm:/etc/openvpn
+            - ./openvpn/config/{{ chal.short_name }}:/etc/openvpn
         networks:
             default:
             internal:
         ports:
-            - "1194:1194/udp"
+            - "{{ chal.port }}:{{ chal.port }}/udp"
         environment:
-            - NAUM_FILES=[mitm/docker-compose.yml, common/docker-compose.yml]
+            - NAUM_FILES={{ chal.files|tojson }}
 
-    openvpn-listen:
-        extends:
-            file: openvpn-compose.yml
-            service: openvpn
-        volumes:
-            - ./openvpn/config/listen:/etc/openvpn
-        networks:
-            default:
-            internal:
-        ports:
-            - "1195:1195/udp"
-        environment:
-            - NAUM_FILES=[listen/docker-compose.yml, common/docker-compose.yml]
-
+    {% endfor -%}
     redis:
         image: "redis:alpine"
         networks:
@@ -66,7 +56,7 @@ services:
             - REDIS_PORT
             - REDIS_DB
             - REDIS_PASSWORD
-        privileged: true
+        privileged: true # TODO: Narrow down privileges
         restart: always
 
 

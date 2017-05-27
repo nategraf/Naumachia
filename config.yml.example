@@ -1,0 +1,8 @@
+DEBUG: false
+
+challenges:
+    - short_name: example
+      port: 1194
+      files:
+          - example/docker-compose.yml
+          - common/docker-compose.yml

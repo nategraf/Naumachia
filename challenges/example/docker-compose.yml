@@ -4,17 +4,15 @@ services:
     bob:
         build: ./bob
         environment:
-            - CTF_FLAG=67afB27edB18Fe33
+            - CTF_FLAG=FOOBAR
 
     alice:
         build: ./alice
         depends_on:
             - bob
         environment:
-            - CTF_FLAG=67afB27edB18Fe33
+            - CTF_FLAG=FOOBAR
 
 networks:
     default:
-        driver_opts:
-            com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
         internal: true
