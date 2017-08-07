@@ -6,3 +6,4 @@ challenges:
       files:
           - example/docker-compose.yml
           - common/docker-compose.yml
+      registrar: true

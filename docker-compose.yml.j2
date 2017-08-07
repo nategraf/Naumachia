@@ -28,6 +28,18 @@ services:
         environment:
             - NAUM_FILES={{ chal.files|tojson }}
 
+    {% if chal.registrar -%}
+    registrar-{{ chal.short_name }}:
+        extends:
+            file: openvpn-compose.yml
+            service: registrar
+        volumes:
+            - ./openvpn/config/{{ chal.short_name }}/ovpn_env.sh:/etc/openvpn/ovpn_env.sh:ro
+            - ./openvpn/config/{{ chal.short_name }}/pki:/etc/openvpn/pki
+        networks:
+            internal:
+
+    {% endif -%}
     {% endfor -%}
     redis:
         image: "redis:alpine"

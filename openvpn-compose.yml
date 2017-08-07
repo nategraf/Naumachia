@@ -7,8 +7,9 @@ services:
             args:
                 - OVPN_REPO_URL
                 - OVPN_REPO_BRANCH
+        image: naumachia/openvpn
+
         volumes:
-            - ./openvpn/config/default:/etc/openvpn
             - /var/run/docker/netns/default:/var/run/netns/host
             - ./openvpn/scripts:/scripts:ro
         cap_add:
@@ -18,3 +19,11 @@ services:
             - REDIS_PORT
             - REDIS_DB
             - REDIS_PASSWORD
+
+    registrar:
+        build:
+            context: ./registrar/build
+        image: naumachia/registrar
+
+        volumes:
+            - ./registrar/app:/app:ro
