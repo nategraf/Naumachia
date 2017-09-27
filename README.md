@@ -29,3 +29,40 @@ For lack of a better method there are two steps that will need to be completed o
 
 #### Run it!
 To run Naumachia simply bring up the enviroment with [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)
+
+## Creating a Challenge
+
+Challenges in Naumachia are defined by a docker-compose.yml file and the rousources it launches
+
+Consider the example provided as [challenges/example/docker-compose.yml](https://github.com/nategraf/Naumachia/blob/master/challenges/example/docker-compose.yml)
+
+```
+version: '2'
+
+services:
+    bob:
+        build: ./bob
+        image: naumachia/example/bob
+        environment:
+            - CTF_FLAG=FOOBAR
+
+    alice:
+        build: ./alice
+        image: naumachia/example/alice
+        depends_on:
+            - bob
+        environment:
+            - CTF_FLAG=FOOBAR
+
+networks:
+    default:
+        internal: true
+```
+
+This example defines a challenge which will feature two containers networked together through the default network, which has been modified to be inaccessible from the external world (as should be down for all challenges unless you have a good reason not to)
+
+The code defining alice's behavior is in the folder [./alice](https://github.com/nategraf/Naumachia/tree/master/challenges/example/alice) where you will find a Dockerfile defining the containers properties, and a python script which will be run as defined in the Dockerfile (This python script send a message to bob "asking" if she hass the right flag repeatedly)
+
+Simmilarly bob's definition is in [./bob](https://github.com/nategraf/Naumachia/tree/master/challenges/example/bob) which is a simple server listening for the flag alice sends and responding yes or no if it is correct
+
+The user will log in to the VPN tunnel with a config provided by the registrar, and execute an attack to intecept the traffic and obtain the flag
