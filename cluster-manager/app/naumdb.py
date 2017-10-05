@@ -1,36 +1,36 @@
-from trol import Database, Model, Property, Set, Hash, serializer, deserializer
+from trol import Database, Model, Property, Set, Hash, List, serializers, deserializers
 
 class Address:
     def __init__(self, ip, port):
         self.ip = ip
         self.port = port
 
-    @serializer(Address)
     def __repr__(self):
         return "{}!{}".format(self.ip, self.port)
 
-    @deserializer(Address)
+    def __str__(self):
+        return self.__repr__()
+
     @staticmethod
     def deserialize(byts):
         data = byts.decode('utf-8').split('!')
         return Address(data[0], int(data[1]))
 
+serializers[Address] = Address.__repr__
+deserializers[Address] = Address.deserialize
 
-class NaumDB(Database):
+class DB(Database):
     redis = None
 
     class Connection(Model):
-        self.__init__(self, addr):
+        def __init__(self, addr):
             self.id = repr(addr)
-            self.update(
-                ip = ip,
-                port = port
-            )
+            self.addr = addr
 
-        ip = Property(typ=str)
-        port = Property(typ=int)
-        user = Property(typ=Model)
+        addr = Property(typ=Address)
         alive = Property(typ=bool)
+        user = Property(typ=Model)
+        vpn = Property(typ=Model)
 
     class User(Model):
         def __init__(self, id):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+""" Namachia cluster manager to create and 
+"""
 
-from redis import StrictRedis
-from uuid import uuid4
 from signal import signal, SIGTERM, SIGINT
 from collections import Iterable
 import os
@@ -13,6 +13,7 @@ from subprocess import CalledProcessError
 import subprocess
 import docker
 import json
+from .naumdb import DB, Address
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -35,7 +36,7 @@ class Cmd:
         try:
             subprocess.run(self.args, check=True)
         except:
-            logging.error("Failed to carry out {}".format(self.__class__.__name__))
+            logging.error("Failed to carry out '{}'".format(self.__class__.__name__))
             raise
 
 class IpFlushCmd(Cmd):
@@ -169,23 +170,28 @@ class Listener(threading.Thread):
     Based on https://gist.github.com/jobliz/2596594
     """
 
-    def __init__(self, channel, worker=None):
+    def __init__(self, channel, worker):
         threading.Thread.__init__(self)
-        self.pubsub = redis.pubsub()
-        self.pubsub.psubscribe(channel)
+
         self.worker = worker
-        self.stop_event = threading.Event()
         self.channel = channel
+        self.pubsub = redis.pubsub()
+        self.stop_event = threading.Event()
+
+        self.pubsub.psubscribe(channel)
         logging.info("Listener on {} subscribed".format(self.channel))
 
     def dispatch(self, item):
         logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
-        if self.worker and item['data'] != 1:
-            self.worker(item['channel'].decode("utf-8"), item['data'].decode("utf-8")).start()
+        msgtype = item['type'].decode('utf-8')
+        if re.match(r'p?message', msgtype):
+            channel = item['channel'].decode("utf-8")
+            data = item['data'].decode("utf-8")
+            self.worker(channel, data).start()
 
     def stop(self):
-        self.pubsub.punsubscribe()
         self.stop_event.set()
+        self.pubsub.punsubscribe()
 
     def run(self):
         for item in self.pubsub.listen():
@@ -258,9 +264,6 @@ class ClusterWorker(threading.Thread):
                         # Optional in the future
                         IpFlushCmd(bridge_id).run()
 
-
-
-
                 else:
                     raise ValueError("Invalid state {} for user {}".format(user_status, user_id))
 
@@ -287,25 +290,34 @@ class ClusterWorker(threading.Thread):
 
                 redis.delete(key)
 
-def ensure_veth_up(vpn_id, verbose=False):
+def ensure_veth_up(vpn, verbose=False):
+    """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
+    
+    Args:
+        vpn (obj:``DB.Vpn``): The VPN tunnel which needs to have it's veth ensured
     """
-    Assumes existance of vpn DB entry
-    """
-    key = 'vpn:'+vpn_id
-    veth_state = redis.hget(key, 'veth_state')
-    veth = redis.hget(key, 'veth').decode('utf-8')
-    if veth_state == None or veth_state.decode('utf-8') == 'down':
-        LinkUpCmd(veth).run()
-        redis.hset(key, 'veth_state', 'up')
-        logging.info("Set veth {} on vpn tunnel {} up".format(veth, vpn_id))
+    if vpn.veth_state == 'down':
+        LinkUpCmd(vpn.veth).run()
+        vpn.veth_state = 'up'
+        logging.info("Set veth {} on vpn tunnel {} up".format(vpn.veth, vpn.id))
 
     else:
         if verbose:
-            logging.info("veth {} on vpn tunnel {} already up.".format(veth, vpn_id))
+            logging.info("veth {} on vpn tunnel {} already up.".format(vpn.veth, vpn.id))
 
 class VethWorker(threading.Thread):
     """
     A worker to bring the host side interface online when a vpn tunnel comes up
+
+    Reacts to the 'set' event on any Vpn's veth property, which happens when an OpenVPN container comes online
+
+    Attributes:
+        channel (``str``): The Redis message channel that triggered the creation of this worker
+        action (``str``): The action which triggered the creation of this worker
+
+    Args:
+        channel (``str``): Sets the channel attribute
+        action (``str``): Sets the action attribute
     """
     def __init__(self, channel, action):
         threading.Thread.__init__(self)
@@ -313,16 +325,22 @@ class VethWorker(threading.Thread):
         self.action = action
 
     def run(self):
-        if self.action == 'hset':
-            m = re.search(r'vpn:(.*)', self.channel)
-            key = m.group(0)
-            vpn_id = m.group(1)
-
-            ensure_veth_up(vpn_id, True)
+        if self.action == 'set':
+            vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', channel).group('id'))
+            ensure_veth_up(vpn, True)
 
 class VlanWorker(threading.Thread):
     """
-    A worker to handle starting and stopping clusters when a connection spins up or down
+
+    Reacts to the 'set' event of a connection being set 'alive'
+
+    Attributes:
+        channel (``str``): The Redis message channel that triggered the creation of this worker
+        action (``str``): The action which triggered the creation of this worker
+
+    Args:
+        channel (``str``): Sets the channel attribute
+        action (``str``): Sets the action attribute
     """
     def __init__(self, channel, action):
         threading.Thread.__init__(self)
@@ -330,28 +348,26 @@ class VlanWorker(threading.Thread):
         self.action = action
 
     def run(self):
-        if self.action == 'hset':
-            m = re.search(r'connection:(.*)', self.channel)
-            key = m.group(0)
-            connection_id = m.group(1)
+        if self.action == 'set':
+            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel).group('addr'))
+            connection = DB.Connection(addr)
 
-            connection_state = redis.hget(key, 'alive')
-            if connection_state and connection_state.decode('utf-8') == 'yes':
-                user_id = redis.hget(key, 'user').decode('utf-8')
-                vpn_id = redis.hget(key, 'vpn').decode('utf-8')
-                vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
-                project_id = "{}{}".format(user_id, vpn_id)
+            # If this connection is not alive, this worker reacted to the connection being killed
+            if connection.alive:
+                user = connection.user
+                vpn = connection.vpn
 
-                ensure_veth_up(vpn_id)
+                ensure_veth_up(vpn)
 
-                veth = redis.hget('vpn:'+vpn_id, 'veth').decode('utf-8')
-                link_status = redis.hget('vpn:'+vpn_id+':links', vlan)
-                if link_status and link_status.decode('utf-8') == 'bridged':
+                vlan_if = vlan_if_name(vpn.veth, user.vlan)
+
+                link_status = vpn.links[user.vlan]
+                if link_status == 'bridged':
                     logging.info("New connection {} traversing existing vlan link {}"
-                                 .format(connection_id, vlan_if_name(veth, vlan)))
+                                 .format(connection.id, vlan_if))
 
                 else:
-                    if link_status == None or link_status.decode('utf-8') == 'down':
+                    if link_status == 'down':
                         try:
                             VlanCmd(VlanCmd.ADD, veth, vlan).run()
                             logging.info("New vlan link {}:{}".format(vpn_id, vlan))
@@ -359,18 +375,19 @@ class VlanWorker(threading.Thread):
                             if e.returncode != 2:
                                 raise
 
-                            # Raises a CalledProcessError is the link doesn't exist
+                            # Raised a CalledProcessError is the link doesn't exist
                             VlanCmd(VlanCmd.SHOW, veth, vlan).run()
                             logging.warn("Unrecorded exsting link {}:{}".format(vpn_id, vlan))
 
-                        redis.hset('vpn:'+vpn_id+':links', vlan, 'up')
+                        vpn.links[user.vlan] = 'up'
                     
-                    vlan_if = vlan_if_name(veth, vlan)
-                    cluster_state = redis.get('cluster:'+project_id)
-                    if cluster_state:
+
+                    project_id = "{}{}".format(user.id, vpn.id)
+                    cluster = DB.Cluster(project_id)
+                    if cluster.status == 'up':
                         bridge_id = get_bridge_id(project_id)
                         BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-                        redis.hset('vpn:'+vpn_id+':links', vlan, 'bridged')
+                        vpn.links[vlan] = 'bridged'
                         logging.info("Added {} to bridge {} for cluster {}"
                                      .format(vlan_if, bridge_id, project_id))
 
@@ -413,8 +430,8 @@ if __name__ == "__main__":
     update_event = threading.Event()
     listeners=[]
     keyspace_pattern = "__keyspace@{:d}__:{:s}"
-    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), ClusterWorker))
-    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'connection:*'), VlanWorker))
-    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'vpn:'+'?'*12), VethWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*'), ClusterWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*:alive'), VlanWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Vpn:*:veth'), VethWorker))
     for listener in listeners:
         listener.start()

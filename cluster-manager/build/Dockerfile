@@ -5,4 +5,5 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/reposi
     ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin && \
     rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
 
-RUN pip3 install redis docker-compose
+COPY ./requirements.txt /requirements.txt
+RUN pip3 install -r /requirements.txt
