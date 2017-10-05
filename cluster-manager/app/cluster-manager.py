@@ -13,6 +13,7 @@ from subprocess import CalledProcessError
 import subprocess
 import docker
 import json
+from trol import RedisKeyError
 from .naumdb import DB, Address
 
 logging.basicConfig(level=logging.DEBUG)
@@ -125,7 +126,7 @@ class ComposeCmd(Cmd):
     STOP = 2
     DOWN = 3
 
-    def __init__(self, action, project=None, detach=True, composefiles=None, build=False):
+    def __init__(self, action, project=None, detach=True, files=None, build=False):
         self.action = action
         self.project = project
         self.action = action
@@ -133,18 +134,18 @@ class ComposeCmd(Cmd):
         self.build = build
         self.subproc = None
         # Determine if compose files is one string or an iterable of them
-        if not isinstance(composefiles, str) and isinstance(composefiles, Iterable):
-            self.composefiles = composefiles
+        if not isinstance(files, str) and isinstance(files, Iterable):
+            self.files = files
         else:
-            self.composefiles = [composefiles]
+            self.files = [files]
 
         self.args = ['docker-compose']
         if self.project:
             self.args.append('-p')
             self.args.append(self.project)
 
-        if self.composefiles:
-            for cf in self.composefiles:
+        if self.files:
+            for cf in self.files:
                 cf = os.path.normpath(os.path.join(CHALLENGE_FOLDER, cf))
                 self.args.append('-f')
                 self.args.append(cf)
@@ -210,85 +211,76 @@ class ClusterWorker(threading.Thread):
         self.channel = channel
         self.action = action
 
+    def ensure_cluster_up(self, user, vpn, cluster):
+        if cluster.status == 'up':
+            logging.info("New connection {} to exsiting cluster {}"
+                         .format(connection_id, cluster.id))
+        else:
+            ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.files).run()
+
+            if cluster.status == 'stopped':
+                logging.info("Starting cluster {} on new connection {}"
+                             .format(cluster.id, connection_id))
+            else:
+                logging.info("New cluster {} on new connection {}"
+                             .format(cluster.id, connection_id))
+
+            cluster.status = 'up'
+
+            self.ensure_link_bridged(user, vpn, cluster)
+
+    def ensure_cluster_stopped(self, user, vpn, cluster):
+        try:
+            if cluster.status != 'stopped':
+                ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.files).run()
+                logging.info("Stopping cluster {}".format(cluster.id))
+                cluster.status = 'stopped'
+
+            else:
+                logging.info("No action for already stopped cluster {}".format(cluster.id))
+        except RedisKeyError:
+            logging.info("No action for user {} with no registered cluster".format(user_id))
+
+    def ensure_link_bridged(self, user, vpn, cluster):
+            # Bridge in the vlan interface if it is ready to go
+            bridge_id = get_bridge_id(cluster.id)
+            if vpn.links[user.vlan] == 'up':
+                vlan_if = vlan_if_name(vpn.veth, user.vlan)
+                BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
+                vpn.links[user.vlan] = 'bridged'
+                logging.info("Added {} to bridge {} for cluster {}"
+                             .format(vlan_if, bridge_id, cluster.id))
+
+            # Strip the IP address form the bridge to prevent host attacks. 
+            # Hopefully this will be replaced by an option to never give the bridge an ip at all
+            IpFlushCmd(bridge_id).run()
+
+
+
     def run(self):
-        if self.action == 'hset':
-            m = re.search(r'connection:(.*)', self.channel)
-            key = m.group(0)
-            connection_id = m.group(1)
+        if self.action == 'set':
+            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel).group('addr'))
+            connection = DB.Connection(addr)
 
-            user_id = redis.hget(key, 'user').decode('utf-8')
-            user_status = redis.hget('user:'+user_id, 'status')
-            if user_status:
-                user_status = user_status.decode('utf-8')
-            else:
-                raise ValueError("Connection {} for nonexistent user {}".format(connection_id, user_id))
+            user = connection.user
+            vpn = connection.vpn
+            cluster = DB.Cluster(user, vpn)
 
-
-            vpn_id = redis.hget(key, 'vpn').decode('utf-8')
-            project_id = "{}{}".format(user_id, vpn_id)
-
-            connection_alive = True if redis.hget(key, 'alive').decode('utf-8') == 'yes' else False
-
-            if connection_alive:
-                if user_status == 'active':
-                    cluster_status = redis.get('cluster:'+project_id)
-                    if cluster_status and cluster_status.decode('utf-8') == 'up':
-                        logging.info("New connection {} to exsiting cluster {}"
-                                     .format(connection_id, project_id))
-                    else:
-                        compose_json = redis.hget('vpn:'+vpn_id, 'files').decode('utf-8')
-                        compose_files = json.loads(compose_json.replace("'",'"'))
-                        ComposeCmd(ComposeCmd.UP, project=project_id, composefiles=compose_files).run()
-
-                        if cluster_status and cluster_status.decode('utf-8') == 'stopped':
-                            logging.info("Starting cluster {} on new connection {}"
-                                         .format(project_id, connection_id))
-                        else:
-                            logging.info("New cluster {} on new connection {}"
-                                         .format(project_id, connection_id))
-                        redis.set('cluster:'+project_id, 'up')
-
-                        # Bridge in the vlan interface if it is ready to go
-                        vlan = redis.hget('user:'+user_id, 'vlan').decode('utf-8')
-                        link_state = redis.hget('vpn:'+vpn_id+':links', vlan)
-                        bridge_id = get_bridge_id(project_id)
-                        if link_state and link_state.decode('utf-8') == 'up':
-                            veth = redis.hget('vpn:'+vpn_id, 'veth').decode('utf-8')
-                            vlan_if = vlan_if_name(veth, vlan)
-                            BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-                            redis.hset('vpn:'+vpn_id+':links', vlan, 'bridged')
-                            logging.info("Added {} to bridge {} for cluster {}"
-                                         .format(vlan_if, bridge_id, project_id))
-
-                        # Strip the IP address form the bridge to prevent host attacks. 
-                        # Optional in the future
-                        IpFlushCmd(bridge_id).run()
-
+            if connection.alive:
+                if user.status == 'active':
+                    self.ensure_cluster_up(user, vpn, cluster)
                 else:
-                    raise ValueError("Invalid state {} for user {}".format(user_status, user_id))
+                    raise ValueError("Invalid state {} for user {}".format(user.status, user.id))
 
             else:
-                if user_status == 'active':
+                if user.status == 'active':
                     logging.info("Removed connection {} for active user {}"
                                      .format(connection_id, user_id))
 
-                if user_status == 'disconnected':
-                    cluster_status = redis.get('cluster:'+project_id)
-                    if cluster_status:
-                        if cluster_status != 'stopped':
-                            vpn_id = redis.hget(key, 'vpn').decode('utf-8')
-                            compose_json = redis.hget('vpn:'+vpn_id, 'files').decode('utf-8')
-                            compose_files = json.loads(compose_json.replace("'",'"'))
-                            ComposeCmd(ComposeCmd.STOP, project=project_id, composefiles=compose_files).run()
-                            logging.info("Stopping cluster {}".format(project_id))
-                            cluster_status = redis.set('cluster:'+project_id, 'stopped')
+                if user.status == 'disconnected':
+                    self.ensure_cluster_stopped(user, vpn, cluster):
 
-                        else:
-                            logging.info("No action for already stopped cluster {}".format(project_id))
-                    else:
-                        logging.info("No action for user {} with no registered cluster".format(user_id))
-
-                redis.delete(key)
+                connection.delete()
 
 def ensure_veth_up(vpn, verbose=False):
     """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
@@ -347,6 +339,35 @@ class VlanWorker(threading.Thread):
         self.channel = channel
         self.action = action
 
+    def bring_up_link(self, vpn, user):
+        try:
+            VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
+            logging.info("New vlan link on vpn {} for vlan {}".format(vpn.id, user.vlan))
+        except CalledProcessError as e:
+            if e.returncode != 2:
+                raise
+
+            # Raised a CalledProcessError is the link doesn't exist
+            VlanCmd(VlanCmd.SHOW, veth, vlan).run()
+            logging.warn("Unrecorded exsting link {}:{}".format(vpn_id, vlan))
+
+        vpn.links[user.vlan] = 'up'
+
+    def bridge_cluster(self, vpn, user):
+        cluster = DB.Cluster(user, vpn)
+
+        if cluster.status == 'up':
+            bridge_id = get_bridge_id(cluster.id)
+            BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
+            vpn.links[vlan] = 'bridged'
+            logging.info("Added {} to bridge {} for cluster {}"
+                         .format(vlan_if, bridge_id, cluster.id))
+
+        else:
+            logging.info(
+                    "Cluster {} not up. Defering addition of {} to a bridge".format(project.id, vlan_if))
+
+
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel).group('addr'))
@@ -368,33 +389,9 @@ class VlanWorker(threading.Thread):
 
                 else:
                     if link_status == 'down':
-                        try:
-                            VlanCmd(VlanCmd.ADD, veth, vlan).run()
-                            logging.info("New vlan link {}:{}".format(vpn_id, vlan))
-                        except CalledProcessError as e:
-                            if e.returncode != 2:
-                                raise
+                        bring_up_link(vpn, user)
 
-                            # Raised a CalledProcessError is the link doesn't exist
-                            VlanCmd(VlanCmd.SHOW, veth, vlan).run()
-                            logging.warn("Unrecorded exsting link {}:{}".format(vpn_id, vlan))
-
-                        vpn.links[user.vlan] = 'up'
-                    
-
-                    project_id = "{}{}".format(user.id, vpn.id)
-                    cluster = DB.Cluster(project_id)
-                    if cluster.status == 'up':
-                        bridge_id = get_bridge_id(project_id)
-                        BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-                        vpn.links[vlan] = 'bridged'
-                        logging.info("Added {} to bridge {} for cluster {}"
-                                     .format(vlan_if, bridge_id, project_id))
-
-                    else:
-                        logging.info("Cluster {} not up. Defering addition of {} to a bridge"
-                                     .format(project_id, vlan_if))
-
+                    bridge_cluster(vpn, user)
 def get_env():
     env = {}
     env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
@@ -430,7 +427,7 @@ if __name__ == "__main__":
     update_event = threading.Event()
     listeners=[]
     keyspace_pattern = "__keyspace@{:d}__:{:s}"
-    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*'), ClusterWorker))
+    listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*:alive'), ClusterWorker))
     listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*:alive'), VlanWorker))
     listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Vpn:*:veth'), VethWorker))
     for listener in listeners:

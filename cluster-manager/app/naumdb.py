@@ -42,8 +42,8 @@ class DB(Database):
         connections = Set(typ=Address)
 
     class Cluster(Model):
-        def __init__(self, id):
-            self.id = id
+        def __init__(self, user, vpn):
+            self.id = '{}!{}'.format(user.id, vpn.id)
 
         status = Property(typ=str)
 
