@@ -7,6 +7,8 @@ When called this script will clean up the DB entries made by client-connect
 
 from common import get_env
 from redis import StrictRedis
+from .naumdb import DB, Address
+from trol import RedisKeyError
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -16,18 +18,13 @@ def client_disconnect():
     client = '{TRUSTED_IP}:{TRUSTED_PORT}'.format(**env)
     redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
 
-    connection_id = redis.hget('connections', client)
-    if connection_id:
-        connection_id = connection_id.decode('utf-8')
-        user_id = redis.hget('connection:'+connection_id, 'user')
-        if user_id:
-            user_id = user_id.decode('utf-8')
-            redis.srem('user:'+user_id+':connections', connection_id)
-            if redis.scard('connections:'+user_id) == 0:
-                redis.hset('user:'+user_id, 'status', 'disconnected')
-        redis.hset('connection:'+connection_id, 'alive', 'no')
-        redis.hdel('connections', client)
-    else:
+    connection = DB.Connection(Address(env['TRUSTED_IP'], env['TRUSTED_PORT']))
+    try:
+        connection.user.connections.remove(connection) # That's a mouthful
+        if len(connection.user.connections) == 0:
+            connection.user.status = 'disconnected'
+        connection.alive = False
+    except RedisKeyError:
         logging.warn("Connection {} removed from Redis prior to disconnect".format(client))
 
 if __name__ == "__main__":

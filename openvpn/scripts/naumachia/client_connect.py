@@ -8,7 +8,7 @@ When called this script adds the new user to the DB and chooses a vlan for this 
 from common import get_env
 from register_vpn import register_vpn
 from argparse import ArgumentParser
-from redis import StrictRedis
+from .naumdb import DB, Address
 import hashlib
 import logging
 import random
@@ -25,50 +25,52 @@ def parse_args():
 
     return parser.parse_args()
 
+def create_user(vpn):
+    existing_vlans = vpn.links.keys()
+    while not vlan:
+        vlan = random.randint(10,4000)
+        if vlan in existing_vlans:
+            vlan = None
+
+    user_id = hashlib.sha256(env['COMMON_NAME'].encode('utf-8')).hexdigest()
+    user = DB.User(user_id)
+    user.update(
+        vlan = str(vlan),
+        cn = env['COMMON_NAME'],
+        status = 'active'
+    )
+
+    users[env['COMMON_NAME']] = user
+    logging.info("Welcome to new user {}".format(env['COMMON_NAME']))
+
+    return user
+
 def client_connect(ccname):
     env = get_env()
-    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
 
-    if not redis.sismember('vpns', env['HOSTNAME']):
+    vpn = DB.Vpn(env['HOSTNAME'])
+    if not vpn in DB.vpns:
         register_vpn()
 
     vlan = None
-    user_id = redis.hget('cnames', env['COMMON_NAME']) 
-    if user_id:
-        user_id = user_id.decode('utf-8')
-        vlan = int(redis.hget('user:'+user_id, 'vlan').decode('utf-8'))
-        redis.hset('user:'+user_id, 'status', 'active')
+    user = DB.users[env['COMMON_NAME']]
+    if user:
+        user.status = 'active'
         
     else:
-        while not vlan:
-            vlan = random.randint(10,4000)
-            if redis.sismember('vlans:'+env['HOSTNAME'], vlan):
-                vlan = None
+        user = create_user(vpn)
 
-        user = {
-            "vlan": str(vlan),
-            "cn": env['COMMON_NAME'],
-            "status": 'active'
-        }
-        user_id = hashlib.sha256(env['COMMON_NAME'].encode('utf-8')).hexdigest()
-        redis.hmset('user:'+user_id, user)
+    addr = Address(env['TRUSTED_IP'], env['TRUSTED_PORT'])
+    connection = DB.Connection(addr)
+    connection.update(
+        addr = addr,
+        vpn = vpn,
+        user = user,
+        alive = True
+    )
+    user.connections.add(connection)
 
-        redis.hset('cnames', env['COMMON_NAME'], user_id)
-        logging.info("Welcome to new user {}".format(env['COMMON_NAME']))
-
-    connection = {
-        "ip": env['TRUSTED_IP'],
-        "port": env['TRUSTED_PORT'],
-        "vpn": env['HOSTNAME'],
-        "user": user_id,
-        "alive": 'yes'
-    }
-    connection_id = '{ip}.{port}'.format(**connection)
-    redis.hmset('connection:'+connection_id, connection)
-    redis.hset('connections', '{ip}:{port}'.format(**connection), connection_id)
-    redis.sadd('user:'+user_id+':connections', connection_id)
-
-    logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, **connection))
+    logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, ip=add.ip, port=addr.port))
 
     with open(args.ccname, 'w') as ccfile:
         ccfile.write(CCTEMPLATE.format(vlan=vlan))
