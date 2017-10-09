@@ -1,0 +1,7 @@
+version: '2.1'
+
+services:
+    lazy:
+        image: "alpine:3.6"
+        command: [ "sleep", "60" ]
+        networks: []

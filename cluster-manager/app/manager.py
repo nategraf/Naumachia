@@ -13,6 +13,7 @@ from subprocess import CalledProcessError
 import subprocess
 import docker
 import json
+from redis import Redis
 from trol import RedisKeyError
 from .naumdb import DB, Address
 
@@ -211,23 +212,24 @@ class ClusterWorker(threading.Thread):
         self.channel = channel
         self.action = action
 
-    def ensure_cluster_up(self, user, vpn, cluster):
-        if cluster.status == 'up':
+    def ensure_cluster_up(self, user, vpn, cluster, connection):
+        exists = cluster.exists() 
+        if exists and cluster.status == 'up':
             logging.info("New connection {} to exsiting cluster {}"
-                         .format(connection_id, cluster.id))
+                         .format(connection.id, cluster.id))
         else:
             ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.files).run()
 
-            if cluster.status == 'stopped':
+            if not exists or cluster.status == 'stopped':
                 logging.info("Starting cluster {} on new connection {}"
-                             .format(cluster.id, connection_id))
+                             .format(cluster.id, connection.id))
             else:
                 logging.info("New cluster {} on new connection {}"
-                             .format(cluster.id, connection_id))
+                             .format(cluster.id, connection.id))
 
             cluster.status = 'up'
 
-            self.ensure_link_bridged(user, vpn, cluster)
+            self.bridge_link_if_ready(user, vpn, cluster)
 
     def ensure_cluster_stopped(self, user, vpn, cluster):
         try:
@@ -239,9 +241,9 @@ class ClusterWorker(threading.Thread):
             else:
                 logging.info("No action for already stopped cluster {}".format(cluster.id))
         except RedisKeyError:
-            logging.info("No action for user {} with no registered cluster".format(user_id))
+            logging.info("No action for user {} with no registered cluster".format(user.id))
 
-    def ensure_link_bridged(self, user, vpn, cluster):
+    def bridge_link_if_ready(self, user, vpn, cluster):
             # Bridge in the vlan interface if it is ready to go
             bridge_id = get_bridge_id(cluster.id)
             if vpn.links[user.vlan] == 'up':
@@ -259,7 +261,7 @@ class ClusterWorker(threading.Thread):
 
     def run(self):
         if self.action == 'set':
-            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel).group('addr'))
+            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
 
             user = connection.user
@@ -268,17 +270,17 @@ class ClusterWorker(threading.Thread):
 
             if connection.alive:
                 if user.status == 'active':
-                    self.ensure_cluster_up(user, vpn, cluster)
+                    self.ensure_cluster_up(user, vpn, cluster, connection)
                 else:
                     raise ValueError("Invalid state {} for user {}".format(user.status, user.id))
 
             else:
                 if user.status == 'active':
                     logging.info("Removed connection {} for active user {}"
-                                     .format(connection_id, user_id))
+                                     .format(connection.id, user.id))
 
                 if user.status == 'disconnected':
-                    self.ensure_cluster_stopped(user, vpn, cluster):
+                    self.ensure_cluster_stopped(user, vpn, cluster)
 
                 connection.delete()
 
@@ -318,7 +320,7 @@ class VethWorker(threading.Thread):
 
     def run(self):
         if self.action == 'set':
-            vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', channel).group('id'))
+            vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', self.channel).group('id'))
             ensure_veth_up(vpn, True)
 
 class VlanWorker(threading.Thread):
@@ -355,22 +357,23 @@ class VlanWorker(threading.Thread):
 
     def bridge_cluster(self, vpn, user):
         cluster = DB.Cluster(user, vpn)
+        vlan_if = vlan_if_name(vpn.veth, user.vlan)
 
-        if cluster.status == 'up':
+        if cluster.exists() and cluster.status == 'up':
             bridge_id = get_bridge_id(cluster.id)
             BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-            vpn.links[vlan] = 'bridged'
+            vpn.links[user.vlan] = 'bridged'
             logging.info("Added {} to bridge {} for cluster {}"
                          .format(vlan_if, bridge_id, cluster.id))
 
         else:
             logging.info(
-                    "Cluster {} not up. Defering addition of {} to a bridge".format(project.id, vlan_if))
+                    "Cluster {} not up. Defering addition of {} to a bridge".format(cluster.id, vlan_if))
 
 
     def run(self):
         if self.action == 'set':
-            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel).group('addr'))
+            addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
@@ -389,9 +392,9 @@ class VlanWorker(threading.Thread):
 
                 else:
                     if link_status == 'down':
-                        bring_up_link(vpn, user)
+                        self.bring_up_link(vpn, user)
 
-                    bridge_cluster(vpn, user)
+                    self.bridge_cluster(vpn, user)
 def get_env():
     env = {}
     env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
@@ -421,7 +424,7 @@ if __name__ == "__main__":
     signal(SIGTERM, stop_handler)
     signal(SIGINT, stop_handler)
 
-    redis = StrictRedis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
+    redis = Redis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
     dockerc = docker.from_env()
     
     update_event = threading.Event()

@@ -1,7 +1,8 @@
-version: '2'
+version: '2.1'
 
 services:
     {% if DEBUG -%}
+    # Eve is container designed to connect to the network for testing a debugging
     eve:
         build: ./eve/build
         networks:
@@ -64,7 +65,7 @@ services:
             - ./challenges:/challenges
             - /var/run/docker.sock:/var/run/docker.sock
             - /var/run/docker/netns/default:/var/run/netns/host
-        command: [python3, /app/cluster-manager.py]
+        command: [python3, /app/manager.py]
         environment:
             - REDIS_HOSTNAME
             - REDIS_PORT
