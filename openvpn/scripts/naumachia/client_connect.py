@@ -8,7 +8,7 @@ When called this script adds the new user to the DB and chooses a vlan for this 
 from common import get_env
 from register_vpn import register_vpn
 from argparse import ArgumentParser
-from .naumdb import DB, Address
+from naumdb import DB, Address
 import hashlib
 import logging
 import random
@@ -25,22 +25,26 @@ def parse_args():
 
     return parser.parse_args()
 
-def create_user(vpn):
+def create_user(vpn, env):
     existing_vlans = vpn.links.keys()
+    vlan = None
     while not vlan:
         vlan = random.randint(10,4000)
         if vlan in existing_vlans:
             vlan = None
 
+    # This is currently implemented as a security measure; Never want user data possibly injected into control info
+    # e.g. what if a user called themselves "Vpn:xxxxxxxxxxxx", taht could trigger I listener 
+    # .... well actually it wouldn't, and I can't think of any dangerous examples, so maybe I'll ditch this for readability
     user_id = hashlib.sha256(env['COMMON_NAME'].encode('utf-8')).hexdigest()
     user = DB.User(user_id)
     user.update(
-        vlan = str(vlan),
+        vlan = vlan,
         cn = env['COMMON_NAME'],
         status = 'active'
     )
 
-    users[env['COMMON_NAME']] = user
+    DB.users[env['COMMON_NAME']] = user
     logging.info("Welcome to new user {}".format(env['COMMON_NAME']))
 
     return user
@@ -52,13 +56,12 @@ def client_connect(ccname):
     if not vpn in DB.vpns:
         register_vpn()
 
-    vlan = None
     user = DB.users[env['COMMON_NAME']]
     if user:
         user.status = 'active'
         
     else:
-        user = create_user(vpn)
+        user = create_user(vpn, env)
 
     addr = Address(env['TRUSTED_IP'], env['TRUSTED_PORT'])
     connection = DB.Connection(addr)
@@ -70,10 +73,10 @@ def client_connect(ccname):
     )
     user.connections.add(connection)
 
-    logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=vlan, ip=add.ip, port=addr.port))
+    logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=user.vlan, ip=addr.ip, port=addr.port))
 
     with open(args.ccname, 'w') as ccfile:
-        ccfile.write(CCTEMPLATE.format(vlan=vlan))
+        ccfile.write(CCTEMPLATE.format(vlan=user.vlan))
 
 if __name__ == "__main__":
     args = parse_args()

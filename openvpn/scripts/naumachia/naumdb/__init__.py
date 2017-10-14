@@ -13,7 +13,12 @@ class Address:
 
     @staticmethod
     def deserialize(byts):
-        data = byts.decode('utf-8').split('!')
+        if type(byts) is not str:
+            string = byts.decode('utf-8')
+        else:
+            string = byts
+        data = string.split('!')
+
         return Address(data[0], int(data[1]))
 
 serializers[Address] = Address.__repr__

@@ -5,6 +5,8 @@ This is a set of common functions used by each naumachia VPN script
 
 import yaml
 import os
+from redis import Redis
+from naumdb import DB
 
 ENVFILE = '/env.yaml'
 
@@ -25,4 +27,11 @@ def get_env():
     env['COMMON_NAME'] = os.getenv('common_name')
     env['TRUSTED_IP'] = os.getenv('trusted_ip')
     env['TRUSTED_PORT'] = os.getenv('trusted_port')
+
+    if DB.redis is None:
+        set_redis(env)
+
     return env
+
+def set_redis(env):
+    DB.redis = Redis(host=env['REDIS_HOSTNAME'], port=env['REDIS_PORT'], db=env['REDIS_DB'], password=env['REDIS_PASSWORD'])

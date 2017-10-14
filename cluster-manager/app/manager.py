@@ -15,7 +15,7 @@ import docker
 import json
 from redis import Redis
 from trol import RedisKeyError
-from .naumdb import DB, Address
+from naumdb import DB, Address
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -177,18 +177,17 @@ class Listener(threading.Thread):
 
         self.worker = worker
         self.channel = channel
-        self.pubsub = redis.pubsub()
+        self.pubsub = DB.redis.pubsub()
         self.stop_event = threading.Event()
 
         self.pubsub.psubscribe(channel)
         logging.info("Listener on {} subscribed".format(self.channel))
 
     def dispatch(self, item):
-        logging.debug("Recieved event {} {}".format(item['channel'], item['data']))
-        msgtype = item['type'].decode('utf-8')
-        if re.match(r'p?message', msgtype):
-            channel = item['channel'].decode("utf-8")
-            data = item['data'].decode("utf-8")
+        logging.debug("Recieved event '{}' '{}' '{}'".format(item['type'], item['channel'], item['data']))
+        if re.match(r'p?message', item['type']):
+            channel = item['channel'].decode('utf-8')
+            data = item['data'].decode('utf-8')
             self.worker(channel, data).start()
 
     def stop(self):
@@ -258,11 +257,11 @@ class ClusterWorker(threading.Thread):
             IpFlushCmd(bridge_id).run()
 
 
-
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
+            logging.debug("ClusterWorker responding to 'set' on connection '{}' alive status".format(addr))
 
             user = connection.user
             vpn = connection.vpn
@@ -283,6 +282,8 @@ class ClusterWorker(threading.Thread):
                     self.ensure_cluster_stopped(user, vpn, cluster)
 
                 connection.delete()
+        else:
+            logging.debug("ClusterWorker not responding to '{}' event".format(self.action))
 
 def ensure_veth_up(vpn, verbose=False):
     """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
@@ -374,6 +375,7 @@ class VlanWorker(threading.Thread):
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
+            logging.debug("VlanWorker responding to 'set' on connection '{}' alive status".format(addr))
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
@@ -391,10 +393,14 @@ class VlanWorker(threading.Thread):
                                  .format(connection.id, vlan_if))
 
                 else:
-                    if link_status == 'down':
+                    if not link_status or link_status == 'down':
                         self.bring_up_link(vpn, user)
 
                     self.bridge_cluster(vpn, user)
+
+        else:
+            logging.debug("VlanWorker not responding to '{}' event".format(self.action))
+
 def get_env():
     env = {}
     env['REDIS_HOSTNAME'] = os.getenv('REDIS_HOSTNAME', 'redis')
@@ -406,6 +412,7 @@ def get_env():
     return env
 
 def get_bridge_id(cluster_id):
+    cluster_id = ''.join(c for c in cluster_id if c.isalnum())
     netlist = dockerc.networks.list(names=[cluster_id+'_default'])
     if not netlist:
         raise ValueError("No default network is up for {}".format(cluster_id))
@@ -416,7 +423,6 @@ def stop_handler(signum, frame):
     logging.info("Shutting down...")
 
 if __name__ == "__main__":
-    global redis 
     global dockerc
 
     env = get_env()
@@ -424,7 +430,7 @@ if __name__ == "__main__":
     signal(SIGTERM, stop_handler)
     signal(SIGINT, stop_handler)
 
-    redis = Redis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
+    DB.redis = Redis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
     dockerc = docker.from_env()
     
     update_event = threading.Event()

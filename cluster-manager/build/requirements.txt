@@ -1,3 +1,4 @@
 redis
 docker
 trol
+docker-compose

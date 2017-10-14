@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ -z "$OVPN_REPO_URL" ]; then
    OVPN_REPO_URL="https://github.com/OpenVPN/openvpn.git" 
 fi

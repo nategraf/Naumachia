@@ -16,7 +16,8 @@ RUN source ./make-openvpn.sh
 RUN apk del autoconf automake libtool openssl-dev linux-pam-dev net-tools linux-headers build-base git && \
     rm ./make-openvpn.sh
 
-RUN pip3 install redis pyyaml
+COPY ./requirements.txt ./requirements.txt
+RUN pip3 install -r requirements.txt && rm requirements.txt
 
 ENTRYPOINT ["/scripts/naumachia-start"]
 CMD ["ovpn_run"]

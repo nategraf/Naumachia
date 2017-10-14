@@ -3,7 +3,7 @@
 .*.swp
 .*.swo
 
-eve/config/*.ovpn
+eve/config/*
 **/pki/*
 *.pem
 
