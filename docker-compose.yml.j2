@@ -25,6 +25,8 @@ services:
             - ./openvpn/config/{{ chal.short_name }}:/etc/openvpn
         networks:
             default:
+                aliases:
+                    - "{{chal.short_name}}.{{domain}}"
             internal:
         ports:
             - "{{ chal.port }}:{{ chal.port }}/udp"

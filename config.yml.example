@@ -1,5 +1,7 @@
 DEBUG: false
 
+domain: mydomain.net
+
 challenges:
     - short_name: example
       port: 1194
