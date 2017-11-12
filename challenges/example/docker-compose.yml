@@ -1,5 +1,16 @@
 version: '2.1'
 
+# The file defines the configuration for simple Nauachia challenge
+# where a sucessful man-in-the-middle (MTIM) attack 
+# (such as ARP poisoning) provides a solution
+
+# If you are unfamiliar with docker-compose this might be helpful:
+# * https://docs.docker.com/compose/
+# * https://docs.docker.com/compose/compose-file/
+#
+# But the gist is that the services block below specifies two containers,
+# which act as parties in a vulnerable communication
+
 services:
     bob:
         build: ./bob
@@ -14,6 +25,10 @@ services:
             - bob
         environment:
             - CTF_FLAG=FOOBAR
+
+# To avoid users from using this challenge as a personal VPN
+# gateway to the internet, it is important to always specify the
+# default network as internal (i.e. not connected to teh internet)
 
 networks:
     default:

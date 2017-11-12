@@ -50,5 +50,5 @@ if [ -d "$DIR" ]; then
     done &
 fi
 
-echo "ARPON: setup now running $@"
+echo "ARPON: setup done, now running $@"
 exec "$@"

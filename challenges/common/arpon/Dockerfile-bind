@@ -11,6 +11,7 @@ COPY ./make-arpon.sh ./make-arpon.sh
 RUN sh ./make-arpon.sh
 
 RUN apt-get -y remove autoconf automake cmake build-essential git python3-pip && \
+    apt-get -y autoremove && \
     rm ./make-arpon.sh
 #############################################
 
