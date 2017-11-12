@@ -67,7 +67,7 @@ services:
 
 # To avoid users from using this challenge as a personal VPN
 # gateway to the internet, it is important to always specify the
-# default network as internal (i.e. not connected to teh internet)
+# default network as internal (i.e. not connected to the internet)
 
 networks:
     default:
