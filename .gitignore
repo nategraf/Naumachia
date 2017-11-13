@@ -9,13 +9,19 @@ eve/config/*
 
 *.pyc
 __pycache__
-venv
 
+# Filter out generated and user sepcific files
 docker-compose.yml
 config.yml
 
+# Filter out non-example challenges
 challenges/*
 !challenges/example
 !challenges/common
+
+# Filter out non-example openvpn config
 openvpn/config/*
 !openvpn/config/example
+
+# Filter out where we pull down easyrsa
+tools

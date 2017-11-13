@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
+import io
 import jinja2
 import yaml
 import argparse
-from os import path, mkdir
+import requests
+import tarfile
+from os import path, mkdir, chmod
+
+EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.3/EasyRSA-3.0.3.tgz'
 
 def parse_args():
     dir = path.dirname(__file__)
@@ -16,8 +21,26 @@ def parse_args():
     parser.add_argument('--templates', metavar="PATH", default=path.join(dir, 'templates'), help='path to the configuration templates')
     parser.add_argument('--compose', metavar="PATH", default=path.join(dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
     parser.add_argument('--ovpn-configs', metavar="PATH", default=path.join(dir, 'openvpn', 'config'), help='path to openvpn configurations')
+    parser.add_argument('--easyrsa', metavar="PATH", default=path.join(dir, 'tools', 'easyrsa'), help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
 
     return parser.parse_args()
+
+def install_easyrsa(location):
+    install_dir = path.dirname(location)
+    if not path.isdir(install_dir):
+        mkdir(install_dir)
+
+    with requests.get(EASYRSA_URL, stream=True) as resp:
+        tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
+
+    executable = tarball.extractfile('EasyRSA-3.0.3/easyrsa')
+
+    with open(location, 'wb') as f:
+        f.write(executable.read())
+
+    chmod(location, 0o775)
+
+    print("Installed easyrsa to '{}' from '{}'".format(location, EASYRSA_URL))
 
 def render(tpl_path, dst_path, context):
     dirname, filename = path.split(tpl_path)
@@ -41,9 +64,15 @@ if __name__ == "__main__":
     with open(args.config, 'r') as config_file:
         settings = yaml.load(config_file)
 
+    # Ensure easyrsa is installed
+    if not path.exists(args.easyrsa):
+        install_easyrsa(args.easyrsa)
+
+    # Render the docker-compose file
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
     render(template_path, args.compose, settings)
 
+    # Create and missing openvpn config directories
     for chal in settings['challenges']:
         config_dirname = path.join(args.ovpn_configs, chal["short_name"])
 
