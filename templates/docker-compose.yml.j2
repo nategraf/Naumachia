@@ -16,17 +16,17 @@ services:
         privileged: true
 
     {% endif -%}
-    {% for chal in challenges -%}
-    openvpn-{{ chal.short_name }}:
+    {% for name, chal in challenges.items() -%}
+    openvpn-{{ name }}:
         extends:
             file: openvpn-compose.yml
             service: openvpn
         volumes:
-            - ./openvpn/config/{{ chal.short_name }}:/etc/openvpn
+            - ./openvpn/config/{{ name }}:/etc/openvpn
         networks:
             default:
                 aliases:
-                    - "{{chal.short_name}}.{{domain}}"
+                    - "{{ name }}.{{ domain }}"
             internal:
         ports:
             - "{{ chal.port }}:{{ chal.port }}/udp"
@@ -34,13 +34,13 @@ services:
             - NAUM_FILES={{ chal.files|tojson }}
 
     {% if chal.registrar -%}
-    registrar-{{ chal.short_name }}:
+    registrar-{{ name }}:
         extends:
             file: openvpn-compose.yml
             service: registrar
         volumes:
-            - ./openvpn/config/{{ chal.short_name }}/ovpn_env.sh:/etc/openvpn/ovpn_env.sh:ro
-            - ./openvpn/config/{{ chal.short_name }}/pki:/etc/openvpn/pki
+            - ./openvpn/config/{{ name }}/ovpn_env.sh:/etc/openvpn/ovpn_env.sh:ro
+            - ./openvpn/config/{{ name }}/pki:/etc/openvpn/pki
         networks:
             internal:
 

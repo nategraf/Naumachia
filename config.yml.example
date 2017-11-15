@@ -3,7 +3,7 @@ DEBUG: false
 domain: mydomain.net
 
 challenges:
-    - short_name: example
+    example:
       port: 1194
       files:
           - example/docker-compose.yml

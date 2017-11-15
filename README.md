@@ -22,10 +22,8 @@ For lack of a better method there are two steps that will need to be completed o
 
 #### On Challenge Creation
 1. Write a [`docker-compose.yml` template](https://docs.docker.com/compose/compose-file/) and put it and any associated files in directory within the `challenges` directory. See `challenges/example` for some guidence
-2. Create a directory within `openvpn/config` for your tunnel configurations. You can copy `openvpn/config/example` and change anything in `ovpn_env.sh` or `openvpn.conf` as you see fit.
-3. Initialise the PKI following directions from [kylemanna/openvpn](https://github.com/kylemanna/docker-openvpn), with the openvpn config directory you just created as the openvpn config folder.
-4. Modify `config.yml` to include your challenge
-5. Run `python3 render-docker-compose.py` to generate the `docker-compose.yml` file from a Jinja2 template
+2. Modify `config.yml` to include your challenge
+3. Run `configure.py` to generate the `docker-compose.yml` file from a Jinja2 template, OpenVPN config files, and PKI
 
 #### Run it!
 To run Naumachia simply bring up the enviroment with [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)

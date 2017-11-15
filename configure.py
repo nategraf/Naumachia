@@ -2,13 +2,60 @@
 
 import io
 import jinja2
+import sys
 import yaml
 import argparse
+import subprocess
 import requests
 import tarfile
 from os import path, mkdir, chmod
 
+global_defaults = {
+    'DEBUG': False,
+    'domain': None,
+    'challenges': {}
+}
+
+challenge_defaults = {
+    'port': 1194
+}
+
 EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.3/EasyRSA-3.0.3.tgz'
+EASYRSA_DIR='EasyRSA-3.0.3'
+EASYRSA_DEFAULT=path.abspath(path.join(path.dirname(__file__), 'tools', EASYRSA_DIR, 'easyrsa'))
+
+def install_easyrsa():
+    install_dir = path.abspath(path.join(path.dirname(__file__), 'tools'))
+
+    if not path.isdir(install_dir):
+        mkdir(install_dir)
+
+    with requests.get(EASYRSA_URL, stream=True) as resp:
+        tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
+        tarball.extractall(path=install_dir)
+
+    print("Installed easyrsa to '{}' from '{}'".format(install_dir, EASYRSA_URL))
+
+def read_config(filename):
+    with open(filename, 'r') as config_file:
+        settings = yaml.load(config_file)
+
+    for key, default in global_defaults.items():
+        if key not in settings:
+            settings[key] = default
+
+    for chal_name, chal_settings in settings['challenges'].items():
+        for key, default in challenge_defaults.items():
+            if key not in chal_settings:
+                chal_settings[key] = default
+
+            if 'commonname' not in chal_settings:
+                if settings['domain']:
+                    chal_settings['commonname'] = '.'.join((chal_name, settings['domain']))
+                else:
+                    chal_settings['commonname'] = chal_name
+
+    return settings
 
 def parse_args():
     dir = path.dirname(__file__)
@@ -21,26 +68,18 @@ def parse_args():
     parser.add_argument('--templates', metavar="PATH", default=path.join(dir, 'templates'), help='path to the configuration templates')
     parser.add_argument('--compose', metavar="PATH", default=path.join(dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
     parser.add_argument('--ovpn-configs', metavar="PATH", default=path.join(dir, 'openvpn', 'config'), help='path to openvpn configurations')
-    parser.add_argument('--easyrsa', metavar="PATH", default=path.join(dir, 'tools', 'easyrsa'), help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
+    parser.add_argument('--easyrsa', metavar="PATH", default=EASYRSA_DEFAULT, help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
 
     return parser.parse_args()
 
-def install_easyrsa(location):
-    install_dir = path.dirname(location)
-    if not path.isdir(install_dir):
-        mkdir(install_dir)
+def init_pki(easyrsa, directory, cn):
+    easyrsa = path.abspath(easyrsa)
 
-    with requests.get(EASYRSA_URL, stream=True) as resp:
-        tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
-
-    executable = tarball.extractfile('EasyRSA-3.0.3/easyrsa')
-
-    with open(location, 'wb') as f:
-        f.write(executable.read())
-
-    chmod(location, 0o775)
-
-    print("Installed easyrsa to '{}' from '{}'".format(location, EASYRSA_URL))
+    subprocess.check_call([easyrsa, 'init-pki'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
+    subprocess.check_call([easyrsa, 'build-ca', 'nopass'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
+    subprocess.check_call([easyrsa, 'gen-dh'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
+    subprocess.check_call([easyrsa, 'build-server-full', cn, 'nopass'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
+    subprocess.check_call([easyrsa, 'gen-crl'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
 
 def render(tpl_path, dst_path, context):
     dirname, filename = path.split(tpl_path)
@@ -59,22 +98,23 @@ def render(tpl_path, dst_path, context):
 if __name__ == "__main__":
     args = parse_args()
 
-    settings = None
     print("Using settings from {}".format(args.config))
-    with open(args.config, 'r') as config_file:
-        settings = yaml.load(config_file)
+    settings = read_config(args.config)
 
     # Ensure easyrsa is installed
     if not path.exists(args.easyrsa):
-        install_easyrsa(args.easyrsa)
+        if args.easyrsa == EASYRSA_DEFAULT:
+            install_easyrsa()
+        else:
+            raise FileNotFoundError("File not found: {}".format(args.easyrsa))
 
     # Render the docker-compose file
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
     render(template_path, args.compose, settings)
 
     # Create and missing openvpn config directories
-    for chal in settings['challenges']:
-        config_dirname = path.join(args.ovpn_configs, chal["short_name"])
+    for name, chal in settings['challenges'].items():
+        config_dirname = path.join(args.ovpn_configs, name)
 
         if not path.isdir(config_dirname):
             mkdir(config_dirname)
@@ -85,6 +125,8 @@ if __name__ == "__main__":
 
             render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
             render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)
+
+            init_pki(args.easyrsa, config_dirname, chal['commonname'])
 
         else:
             print("Using existing openvpn config directory {}".format(config_dirname))
