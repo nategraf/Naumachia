@@ -74,12 +74,28 @@ def parse_args():
 
 def init_pki(easyrsa, directory, cn):
     easyrsa = path.abspath(easyrsa)
+    common_args = {
+        'check': True,
+        'cwd': directory,
+        'stdout': subprocess.PIPE,
+        'stderr': subprocess.PIPE,
+        'universal_newlines': True
+    }
 
-    subprocess.check_call([easyrsa, 'init-pki'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
-    subprocess.check_call([easyrsa, 'build-ca', 'nopass'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
-    subprocess.check_call([easyrsa, 'gen-dh'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
-    subprocess.check_call([easyrsa, 'build-server-full', cn, 'nopass'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
-    subprocess.check_call([easyrsa, 'gen-crl'], cwd=directory, stdin=sys.stdin, stdout=sys.stdout)
+    try:
+        print("  Initializing public key infrastructure (PKI)")
+        subprocess.run([easyrsa, 'init-pki'], **common_args)
+        print("  Building certificiate authority (CA)")
+        subprocess.run([easyrsa, 'build-ca', 'nopass'], input="{}.{}\n".format('ca', cn), **common_args)
+        print("  Generating Diffie-Hellman (DH) parameters")
+        subprocess.run([easyrsa, 'gen-dh'], **common_args)
+        print("  Building server certificiate")
+        subprocess.run([easyrsa, 'build-server-full', cn, 'nopass'], **common_args)
+        print("  Generating certificate revocation list (CRL)")
+        subprocess.run([easyrsa, 'gen-crl'], **common_args)
+    except subprocess.CalledProcessError as e:
+        print("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
+        print(e.output)
 
 def render(tpl_path, dst_path, context):
     dirname, filename = path.split(tpl_path)
