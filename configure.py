@@ -122,7 +122,7 @@ if __name__ == "__main__":
         if args.easyrsa == EASYRSA_DEFAULT:
             install_easyrsa()
         else:
-            raise FileNotFoundError("File not found: {}".format(args.easyrsa))
+            raise FileNotFoundError(args.easyrsa)
 
     # Render the docker-compose file
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
