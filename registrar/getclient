@@ -57,9 +57,6 @@ $(openssl x509 -in $EASYRSA_PKI/issued/${cn}.crt)
 <ca>
 $(cat $EASYRSA_PKI/ca.crt)
 </ca>
-<tls-auth>
-$(cat $EASYRSA_PKI/ta.key)
-</tls-auth>
 key-direction 1
 "
     elif [ "$mode" == "separated" ]; then

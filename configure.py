@@ -131,10 +131,11 @@ if __name__ == "__main__":
     # Create and missing openvpn config directories
     for name, chal in settings['challenges'].items():
         config_dirname = path.join(args.ovpn_configs, name)
+        print("Configuring '{}'".format(name))
 
         if not path.isdir(config_dirname):
             mkdir(config_dirname)
-            print("Created new openvpn config directory {}".format(config_dirname))
+            print("  Created new openvpn config directory {}".format(config_dirname))
 
             context = {'chal': chal}
             context.update(settings)
@@ -145,4 +146,4 @@ if __name__ == "__main__":
             init_pki(args.easyrsa, config_dirname, chal['commonname'])
 
         else:
-            print("Using existing openvpn config directory {}".format(config_dirname))
+            print("  Using existing openvpn config directory {}".format(config_dirname))

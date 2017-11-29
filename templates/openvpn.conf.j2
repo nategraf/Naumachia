@@ -2,15 +2,17 @@ mode server
 tls-server
 
 verb 3
-key /etc/openvpn/pki/private/{{ domain }}.key
+key /etc/openvpn/pki/private/{{ chal.commonname }}.key
 ca /etc/openvpn/pki/ca.crt
-cert /etc/openvpn/pki/issued/{{ domain }}.crt
+cert /etc/openvpn/pki/issued/{{ chal.commonname }}.crt
 dh /etc/openvpn/pki/dh.pem
-tls-auth /etc/openvpn/pki/ta.key
 key-direction 0
 persist-key
 #keepalive 10 60
 #persist-tun
+
+# provides no aditional security in the Naumachia use case
+#tls-auth /etc/openvpn/pki/ta.key
 
 ping 10
 ping-exit 1800
