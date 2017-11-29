@@ -18,9 +18,10 @@ ping-exit 1800
 cipher AES-256-CBC
 auth SHA256
 
-proto udp
 # Rely on Docker to do port mapping, internally always 1194
 port 1194
+
+proto udp
 dev tap0
 status /tmp/openvpn-status.log
 
@@ -32,12 +33,17 @@ comp-lzo
 # This interface should never be exposed beyond localhost
 management 127.0.0.1 7000
 
+# Inform Windows machines that they should renew DHCP on connect
 push dhcp-renew
+
+# Trust any server address taht presents the correct credentials
+# This eliminates issues with multiple urls or IPs routed to the serevr
 push float
 
+# Allow the same to connect multiple times
 duplicate-cn
 
-### Extra Configurations Below
+### Set up connect and disconnect scripts which notify the Redis DB
 script-security 2
 client-connect /scripts/naumachia/client_connect.py
 client-disconnect /scripts/naumachia/client_disconnect.py
