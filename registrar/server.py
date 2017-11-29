@@ -7,6 +7,8 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
     rpc_paths = ('/RPC2',)
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     # Create server
     server = SimpleXMLRPCServer(("0.0.0.0", 3960), requestHandler=RequestHandler)
     server.register_introspection_functions()

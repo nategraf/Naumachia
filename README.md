@@ -25,6 +25,16 @@ For lack of a better method there are two steps that will need to be completed o
 2. Modify `config.yml` to include your challenge
 3. Run `configure.py` to generate the `docker-compose.yml` file from a Jinja2 template, OpenVPN config files, and PKI
 
+#### Distriute Access Credentials
+In order to log into the VPN tunnel and access Naumachia a client needs the correct configuration, and a registered certificate. These two are bundled in an OpenVPN client config file
+
+To generate a client config for your challenge either:
+* Use the registrar CLI
+  * Ex: `./registrar/registrar.py mitm alice` will output to stdout the config and certs for alice to connect to the 'mitm' challenege
+* Use the registrar RPC server
+  * Add `registrar: true` to the challenge config
+  * Connect to the RPC server defined in the compose file and use the 'ovpn_config' method with your client name
+
 #### Run it!
 To run Naumachia simply bring up the enviroment with [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)
 
