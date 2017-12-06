@@ -83,15 +83,15 @@ def init_pki(easyrsa, directory, cn):
     }
 
     try:
-        print("  Initializing public key infrastructure (PKI)")
+        print("Initializing public key infrastructure (PKI)")
         subprocess.run([easyrsa, 'init-pki'], **common_args)
-        print("  Building certificiate authority (CA)")
+        print("Building certificiate authority (CA)")
         subprocess.run([easyrsa, 'build-ca', 'nopass'], input="{}.{}\n".format('ca', cn), **common_args)
-        print("  Generating Diffie-Hellman (DH) parameters")
+        print("Generating Diffie-Hellman (DH) parameters")
         subprocess.run([easyrsa, 'gen-dh'], **common_args)
-        print("  Building server certificiate")
+        print("Building server certificiate")
         subprocess.run([easyrsa, 'build-server-full', cn, 'nopass'], **common_args)
-        print("  Generating certificate revocation list (CRL)")
+        print("Generating certificate revocation list (CRL)")
         subprocess.run([easyrsa, 'gen-crl'], **common_args)
     except subprocess.CalledProcessError as e:
         print("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
@@ -131,11 +131,11 @@ if __name__ == "__main__":
     # Create and missing openvpn config directories
     for name, chal in settings['challenges'].items():
         config_dirname = path.join(args.ovpn_configs, name)
-        print("Configuring '{}'".format(name))
+        print("\nConfiguring '{}'".format(name))
 
         if not path.isdir(config_dirname):
             mkdir(config_dirname)
-            print("  Created new openvpn config directory {}".format(config_dirname))
+            print("Created new openvpn config directory {}".format(config_dirname))
 
             context = {'chal': chal}
             context.update(settings)
@@ -146,4 +146,4 @@ if __name__ == "__main__":
             init_pki(args.easyrsa, config_dirname, chal['commonname'])
 
         else:
-            print("  Using existing openvpn config directory {}".format(config_dirname))
+            print("Using existing openvpn config directory {}".format(config_dirname))
