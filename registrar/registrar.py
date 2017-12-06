@@ -99,6 +99,11 @@ class CertificateListing:
         return cls(**vals)
 
 def add_cert(cn):
+    """Creates certificates for a client
+
+    Args:
+        cn (str): The common name of the client
+    """
     try:
         subprocess.run(
             [path.join(EASYRSA, 'easyrsa'), 'build-client-full', cn, 'nopass'],
@@ -114,7 +119,15 @@ def add_cert(cn):
     else:
         logging.info("Built new certs for '{}'".format(cn))
 
-def get_cert(cn):
+def get_config(cn):
+    """Returns the confgiuration file text for an OpenvVPN client
+
+    Args:
+        cn (str): The common name of the client
+
+    Returns:
+        str: The file text for the client's OpenVPN client
+    """
     config = subprocess.run(
         [getclient, cn],
         stdout=subprocess.PIPE,
@@ -126,6 +139,11 @@ def get_cert(cn):
     return config
 
 def revoke_cert(cn):
+    """Revokes the certificates for a client
+
+    Args:
+        cn (str): The common name of the client
+    """
     try:
         subprocess.run(
             [path.join(EASYRSA, 'easyrsa'), 'revoke', cn],
@@ -151,6 +169,14 @@ def revoke_cert(cn):
         )
 
 def list_certs(cn=None):
+    """Returns all certificates information, or for a particular client
+
+    Args:
+        cn (str): The common name of the client (defaults to None)
+
+    Returns:
+        list[CertificateListing]: The certificate information for all certificates on the challenge, or for a specific client if specified
+    """
     listing = list()
 
     with open(path.join(EASYRSA_PKI, 'index.txt')) as index_file:
@@ -168,6 +194,11 @@ def _try_remove(path):
         pass
 
 def remove_cert(cn):
+    """Removes certificates and index entries for a specified client
+
+    Args:
+        cn (str): The common name of the client (defaults to None)
+    """
     for entry in list_certs(cn):
         _try_remove(path.join(EASYRSA_PKI, 'certs_by_serial', entry.serial + '.pem'))
         _try_remove(path.join(EASYRSA_PKI, 'issued', entry.cn + '.crt'))
@@ -237,7 +268,7 @@ if __name__ == "__main__":
         add_cert(args.client)
 
     elif args.action == 'get':
-        print(get_cert(args.client))
+        print(get_config(args.client))
 
     elif args.action == 'revoke':
         revoke_cert(args.client)
