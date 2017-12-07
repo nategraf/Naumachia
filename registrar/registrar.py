@@ -98,6 +98,19 @@ class CertificateListing:
 
         return cls(**vals)
 
+def _run(cmdargs, **kwargs):
+    try:
+        return subprocess.run(
+            cmdargs,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            check=True,
+            **kwargs
+        )
+    except subprocess.CalledProcessError as e:
+        print(e.stderr.decode('utf-8'))
+        raise
+
 def add_cert(cn):
     """Creates certificates for a client
 
@@ -108,6 +121,7 @@ def add_cert(cn):
         subprocess.run(
             [path.join(EASYRSA, 'easyrsa'), 'build-client-full', cn, 'nopass'],
             stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
             cwd=OPENVPN,
             check=True
         )
@@ -115,6 +129,7 @@ def add_cert(cn):
         if e.returncode == 1 and EASYRSA_ALREADY_EXISTS_MSG in e.stderr:
             logging.info("Using existing certs for '{}'".format(cn))
         else:
+            print(e.stderr.decode('utf-8'))
             raise
     else:
         logging.info("Built new certs for '{}'".format(cn))
@@ -128,11 +143,9 @@ def get_config(cn):
     Returns:
         str: The file text for the client's OpenVPN client
     """
-    config = subprocess.run(
+    config = _run(
         [getclient, cn],
-        stdout=subprocess.PIPE,
         cwd=OPENVPN,
-        check=True
     ).stdout.decode('utf-8')
 
     logging.info("Compiled configuration file for '{}'".format(cn))
@@ -157,15 +170,14 @@ def revoke_cert(cn):
         if e.returncode == 1 and EASYRSA_ALREADY_REVOKED_MSG in e.stderr:
             logging.info("Already revoked certificate for '{}'".format(cn))
         else:
+            print(e.stderr.decode('utf-8'))
             raise
     else:
         logging.info("Revoked certificate for '{}'".format(cn))
 
-        subprocess.run(
+        _run(
             [path.join(EASYRSA, 'easyrsa'), 'gen-crl'],
-            stdout=subprocess.PIPE,
-            cwd=OPENVPN,
-            check=True
+            cwd=OPENVPN
         )
 
 def list_certs(cn=None):
@@ -201,18 +213,20 @@ def remove_cert(cn):
     """
     for entry in list_certs(cn):
         _try_remove(path.join(EASYRSA_PKI, 'certs_by_serial', entry.serial + '.pem'))
-        _try_remove(path.join(EASYRSA_PKI, 'issued', entry.cn + '.crt'))
-        _try_remove(path.join(EASYRSA_PKI, 'private', entry.cn + '.key'))
-        _try_remove(path.join(EASYRSA_PKI, 'reqs', entry.cn + '.req'))
 
-        new_index_lines = []
-        with open(path.join(EASYRSA_PKI, 'index.txt')) as index_file:
-            for line in index_file:
-                if CertificateListing.parse(line).cn != entry.cn:
-                    new_index_lines.append(line)
+    _try_remove(path.join(EASYRSA_PKI, 'issued', cn + '.crt'))
+    _try_remove(path.join(EASYRSA_PKI, 'private', cn + '.key'))
+    _try_remove(path.join(EASYRSA_PKI, 'reqs', cn + '.req'))
 
-        with open(path.join(EASYRSA_PKI, 'index.txt'), 'w') as index_file:
-            index_file.write('\n'.join(new_index_lines))
+    new_index_lines = []
+    with open(path.join(EASYRSA_PKI, 'index.txt')) as index_file:
+        for line in index_file:
+            entry = CertificateListing.parse(line) 
+            if entry is not None and entry.cn != cn:
+                new_index_lines.append(line)
+
+    with open(path.join(EASYRSA_PKI, 'index.txt'), 'w') as index_file:
+        index_file.write('\n'.join(new_index_lines))
 
 def parse_args():
     global EASYRSA
@@ -230,9 +244,11 @@ def parse_args():
 
     parser_add = subparsers.add_parser('add', help="create a set of certificates for a client")
     parser_add.add_argument('client', help="name of the client")
+    parser_add.add_argument('-r', dest="recreate", action='store_true', help="recreate the certificates for this user if they exist")
 
     parser_get = subparsers.add_parser('get', help="print an openvpn client configuration file for a client")
     parser_get.add_argument('client', help="name of the client")
+    parser_get.add_argument('-a', dest="add", action='store_true', help="add a set of certificates if one does not exist already")
 
     parser_remove = subparsers.add_parser('remove', help="remove the certificates for a client")
     parser_remove.add_argument('client', help="name of the client")
@@ -265,9 +281,13 @@ if __name__ == "__main__":
     args = parse_args()
 
     if args.action == 'add':
+        if args.recreate:
+            remove_cert(args.client)
         add_cert(args.client)
 
     elif args.action == 'get':
+        if args.add:
+            add_cert(args.client)
         print(get_config(args.client))
 
     elif args.action == 'revoke':
@@ -278,4 +298,9 @@ if __name__ == "__main__":
 
     elif args.action == 'list':
         for entry in list_certs(args.client):
-            print(entry.cn)
+            print(entry.cn, end=' ')
+            if entry.status == CertificateListing.Status.EXPIRED:
+                print("[EXPIRED]")
+            elif entry.status == CertificateListing.Status.REVOKED:
+                print("[REVOKED]")
+            print()
