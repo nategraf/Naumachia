@@ -89,3 +89,23 @@ The code defining alice's behavior is in the folder [./alice](https://github.com
 Simmilarly bob's definition is in [./bob](https://github.com/nategraf/Naumachia/tree/master/challenges/example/bob) which is a simple server listening for the flag alice sends and responding yes or no if it is correct
 
 The user will log in to the VPN tunnel with a config provided by the registrar, and execute an attack to intecept the traffic and obtain the flag
+
+## Connection Instructions
+
+Clients can use any OS supported by OpenVPN, although Linux is recomended for it's large number of hacking tools
+
+To connect each user will need to:
+0. Install OpenVPN
+  * Can be found on most package managers (e.g. apt, brew, choco) or [downloaded](https://openvpn.net/index.php/open-source/downloads.html)
+  * Ensure the TAP driver is installed
+1. Obtain a configuration file with certificates for the challenge they want to connect from the host
+2. Launch openvpn with the correct configuration
+  * CLI: `openvpn --config`
+  * Windows GUI: Place the config file in `%HOMEPATH%\OpenVPN\config` and right-click the VPN icon on the status bar, then select the config you want
+
+If using the CLI on Linux, or MacOS you may still need to more steps
+3. Bring up the new TAP network interface
+  * Ex: `ip link set tap0 up`
+4. Obtain an IP address by DHCP (if DHCP is enabled for the challenge)
+  * Ex: `udhcpc -i tap0``
+  * Ex: `dhclient tap0``
