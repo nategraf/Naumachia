@@ -21,6 +21,8 @@ services:
         extends:
             file: openvpn-compose.yml
             service: openvpn
+        depends_on:
+            - redis
         volumes:
             - ./openvpn/config/{{ name }}:/etc/openvpn
         networks:
@@ -29,7 +31,7 @@ services:
                     - "{{ name }}.{{ domain }}"
             internal:
         ports:
-            - "{{ chal.port }}:{{ chal.port }}/udp"
+            - "{{ chal.port }}:1194/udp"
         environment:
             - NAUM_FILES={{ chal.files|tojson }}
 
@@ -55,6 +57,7 @@ services:
         volumes:
             - ./redis/config:/usr/local/etc/redis
         command: [redis-server, /usr/local/etc/redis/redis.conf]
+        restart: unless-stopped
 
     cluster-manager:
         build: ./cluster-manager/build
@@ -74,7 +77,7 @@ services:
             - REDIS_DB
             - REDIS_PASSWORD
         privileged: true # TODO: Narrow down privileges
-        restart: always
+        restart: unless-stopped
 
 
 networks:
