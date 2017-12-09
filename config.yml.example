@@ -9,3 +9,4 @@ challenges:
           - example/docker-compose.yml
           - common/docker-compose.yml
       registrar: true
+      commonname: foo.bar.mydomain.net
