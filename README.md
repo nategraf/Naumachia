@@ -25,6 +25,8 @@ For lack of a better method there are two steps that will need to be completed o
 2. Modify `config.yml` to include your challenge
 3. Run `configure.py` to generate the `docker-compose.yml` file from a Jinja2 template, OpenVPN config files, and PKI
 
+WARNING: When writing the compose file, do not use bind volumes (i.e. mount local directories to the container). It will not mount properly when started from the cluster-manager which handles creating and stopping challenge instances. No workaround is provided as it is the eventual intention to move toward a scalable model when you cannot control (or care about) where your challenges are deployed. See [moby/moby#28124](https://github.com/moby/moby/issues/28124) for techinal discussion of the underlying reason
+
 #### Distriute Access Credentials
 In order to log into the VPN tunnel and access Naumachia a client needs the correct configuration, and a registered certificate. These two are bundled in an OpenVPN client config file
 
