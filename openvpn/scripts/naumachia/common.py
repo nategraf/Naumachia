@@ -23,6 +23,7 @@ def get_env():
     env['HOSTNAME'] = yamlenv.get('hostname')
     env['NAUM_VETHHOST'] = yamlenv.get('naum_vethhost')
     env['NAUM_FILES'] = yamlenv.get('naum_files')
+    env['NAUM_CHAL'] = yamlenv.get('naum_chal')
 
     env['COMMON_NAME'] = os.getenv('common_name')
     env['TRUSTED_IP'] = os.getenv('trusted_ip')

@@ -1,4 +1,5 @@
 from trol import Database, Model, Property, Set, Hash, List, serializers, deserializers
+from base64 import b16encode
 
 class Address:
     def __init__(self, ip, port):

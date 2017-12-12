@@ -9,7 +9,7 @@ from common import get_env
 from register_vpn import register_vpn
 from argparse import ArgumentParser
 from naumdb import DB, Address
-import hashlib
+import base64
 import logging
 import random
 
@@ -36,7 +36,7 @@ def create_user(vpn, env):
     # This is currently implemented as a security measure; Never want user data possibly injected into control info
     # e.g. what if a user called themselves "Vpn:xxxxxxxxxxxx", taht could trigger I listener 
     # .... well actually it wouldn't, and I can't think of any dangerous examples, so maybe I'll ditch this for readability
-    user_id = hashlib.sha256(env['COMMON_NAME'].encode('utf-8')).hexdigest()
+    user_id = base64.b16encode(env['COMMON_NAME'].encode('utf-8')).decode('utf-8').lower()
     user = DB.User(user_id)
     user.update(
         vlan = vlan,
