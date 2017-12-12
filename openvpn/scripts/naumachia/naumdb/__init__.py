@@ -47,8 +47,8 @@ class DB(Database):
         connections = Set(typ=Model)
 
     class Cluster(Model):
-        def __init__(self, user, vpn):
-            self.id = '{}!{}'.format(user.id, vpn.id)
+        def __init__(self, user, chal):
+            self.id = '{}!{}'.format(user.id, chal.id)
 
         status = Property(typ=str)
 
@@ -58,8 +58,14 @@ class DB(Database):
 
         veth = Property(typ=str)
         veth_state = Property()
-        files = List(typ=str)
         links = Hash()
+        chal = Property(typ=Model)
+
+    class Challenge(Model):
+        def __init__(self, name):
+            self.id = name.lower()
+
+        files = List(typ=str)
 
     vpns = Set(typ=Model)
     users = Hash(typ=Model)

@@ -217,7 +217,7 @@ class ClusterWorker(threading.Thread):
             logging.info("New connection {} to exsiting cluster {}"
                          .format(connection.id, cluster.id))
         else:
-            ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.files).run()
+            ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
 
             if not exists or cluster.status == 'stopped':
                 logging.info("Starting cluster {} on new connection {}"
@@ -233,7 +233,7 @@ class ClusterWorker(threading.Thread):
     def ensure_cluster_stopped(self, user, vpn, cluster):
         try:
             if cluster.status != 'stopped':
-                ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.files).run()
+                ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.chal.files).run()
                 logging.info("Stopping cluster {}".format(cluster.id))
                 cluster.status = 'stopped'
 
@@ -265,7 +265,7 @@ class ClusterWorker(threading.Thread):
 
             user = connection.user
             vpn = connection.vpn
-            cluster = DB.Cluster(user, vpn)
+            cluster = DB.Cluster(user, vpn.chal)
 
             if connection.alive:
                 if user.status == 'active':
@@ -357,7 +357,7 @@ class VlanWorker(threading.Thread):
         vpn.links[user.vlan] = 'up'
 
     def bridge_cluster(self, vpn, user):
-        cluster = DB.Cluster(user, vpn)
+        cluster = DB.Cluster(user, vpn.chal)
         vlan_if = vlan_if_name(vpn.veth, user.vlan)
 
         if cluster.exists() and cluster.status == 'up':

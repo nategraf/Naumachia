@@ -13,13 +13,18 @@ logging.basicConfig(level=logging.DEBUG)
 def register_vpn():
     env = get_env()
 
+    chal = DB.Challenge(env['NAUM_CHAL'])
+    if len(chal.files) == 0:
+        chal.files.extend(env['NAUM_FILES'])
+
     vpn = DB.Vpn(env['HOSTNAME'])
+
     vpn.update(
         veth = env['NAUM_VETHHOST'],
         veth_state = 'down',
+        chal = chal
     )
-    vpn.files.extend(env['NAUM_FILES'])
-    
+
     DB.vpns.add(vpn)
 
 if __name__ == "__main__":

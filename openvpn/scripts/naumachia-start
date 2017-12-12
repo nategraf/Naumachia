@@ -50,6 +50,7 @@ redis_password: ${REDIS_PASSWORD}\n\
 hostname: ${HOSTNAME}\n\
 naum_vethhost: ${vethhost}\n\
 naum_files: ${NAUM_FILES}\n\
+naum_chal: ${NAUM_CHAL}\n\
 " > env.yaml
 chmod 644 env.yaml
 chown nobody:nobody env.yaml

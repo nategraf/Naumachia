@@ -34,6 +34,7 @@ services:
             - "{{ chal.port }}:1194/udp"
         environment:
             - NAUM_FILES={{ chal.files|tojson }}
+            - NAUM_CHAL="{{ name }}"
 
     {% if chal.registrar -%}
     registrar-{{ name }}:
