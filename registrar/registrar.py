@@ -6,19 +6,20 @@ from datetime import datetime
 import argparse
 import logging
 import subprocess
+import json
 import sys
 import re
 
 EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
+EASYRSA_NONEXIST_REVOKE_MSG = b'Unable to revoke as the input file is not a valid certificate'
+EASYRSA_NONEXIST_GET_MSG = b'Unable to find'
 
 script_dir = path.dirname(__file__)
-openvpn_default = path.abspath(path.join(script_dir, '../openvpn/config/{challenge}'))
 getclient = path.abspath(path.join(script_dir, "getclient"))
 
+OPENVPN_BASE = environ.get("OPENVPN_BASE", path.abspath(path.join(script_dir, '../openvpn/config')))
 EASYRSA = environ.get("EASYRSA", path.abspath(path.join(script_dir, '../tools/EasyRSA-3.0.3')))
-OPENVPN = environ.get("OPENVPN", openvpn_default)
-EASYRSA_PKI = environ.get("EASYRSA_PKI", path.join(OPENVPN, "pki"))
 
 class CertificateListing:
     """Representaion of the status of a certificate
@@ -98,148 +99,203 @@ class CertificateListing:
 
         return cls(**vals)
 
-def _run(cmdargs, **kwargs):
-    try:
-        return subprocess.run(
-            cmdargs,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            check=True,
-            **kwargs
-        )
-    except subprocess.CalledProcessError as e:
-        print(e.stderr.decode('utf-8'))
-        raise
+class EntryNotFoundError(Exception):
+    def __init__(self, cn):
+        self.cn = cn
 
-def add_cert(cn):
-    """Creates certificates for a client
+    def __str__(self):
+        return "No entry for '{0}' was found".format(self.cn)
 
-    Args:
-        cn (str): The common name of the client
-    """
-    try:
-        subprocess.run(
-            [path.join(EASYRSA, 'easyrsa'), 'build-client-full', cn, 'nopass'],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            cwd=OPENVPN,
-            check=True
-        )
-    except subprocess.CalledProcessError as e:
-        if e.returncode == 1 and EASYRSA_ALREADY_EXISTS_MSG in e.stderr:
-            logging.info("Using existing certs for '{}'".format(cn))
+class Registrar:
+    def __init__(self, chal, openvpn_dir=None, easyrsa_dir=None):
+        self.chal = chal
+
+        if openvpn_dir is None:
+            self.openvpn_dir = path.join(OPENVPN_BASE, chal)
         else:
-            print(e.stderr.decode('utf-8'))
-            raise
-    else:
-        logging.info("Built new certs for '{}'".format(cn))
+            self.openvpn_dir = openvpn_dir
 
-def get_config(cn):
-    """Returns the confgiuration file text for an OpenvVPN client
+        if easyrsa_dir is None:
+            self.easyrsa_dir = EASYRSA
+        else:
+            self.easyrsa_dir = easyrsa_dir
 
-    Args:
-        cn (str): The common name of the client
+    @property
+    def run_env(self):
+        return {
+            "OPENVPN": self.openvpn_dir,
+            "EASYRSA": self.easyrsa_dir,
+            "EASYRSA_PKI": self.easyrsa_pki
+        }
 
-    Returns:
-        str: The file text for the client's OpenVPN client
-    """
-    config = _run(
-        [getclient, cn],
-        cwd=OPENVPN,
-    ).stdout.decode('utf-8')
+    @property
+    def easyrsa(self):
+        return path.join(self.easyrsa_dir, 'easyrsa')
 
-    logging.info("Compiled configuration file for '{}'".format(cn))
-    return config
+    @property
+    def easyrsa_pki(self):
+        return path.join(self.openvpn_dir, 'pki')
 
-def revoke_cert(cn):
-    """Revokes the certificates for a client
+    def _run(self, cmdargs, handler=None, **kwargs):
+        try:
+            return subprocess.run(
+                cmdargs,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                check=True,
+                cwd=self.openvpn_dir,
+                env=self.run_env,
+                **kwargs
+            )
+        except subprocess.CalledProcessError as e:
+            if handler is None or not handler(e):
+                print(e.stderr.decode('utf-8'))
+                raise
+            else:
+                return None
 
-    Args:
-        cn (str): The common name of the client
-    """
-    try:
-        subprocess.run(
-            [path.join(EASYRSA, 'easyrsa'), 'revoke', cn],
+    def add_cert(self, cn):
+        """Creates certificates for a client
+
+        Args:
+            cn (str): The common name of the client
+        """
+        proc = self._run(
+            [self.easyrsa, 'build-client-full', cn, 'nopass'],
+            lambda e: e.returncode == 1 and EASYRSA_ALREADY_EXISTS_MSG in e.stderr,
+        )
+        if proc:
+            logging.info("Using existing certs for {0}".format(cn))
+        else:
+            logging.info("Built new certs for {0}".format(cn))
+
+    def get_config(self, cn):
+        """Returns the confgiuration file text for an OpenvVPN client
+
+        Args:
+            cn (str): The common name of the client
+
+        Returns:
+            str: The file text for the client's OpenVPN client
+        """
+
+        def get_error_handler(e):
+            if e.returncode == 1:
+                if EASYRSA_NONEXIST_GET_MSG in e.stderr:
+                    raise EntryNotFoundError(cn)
+            return False
+
+        config = self._run(
+            [getclient, cn],
+            get_error_handler
+        ).stdout.decode('utf-8')
+
+        logging.info("Compiled configuration file for '{}'".format(cn))
+        return config
+
+    def revoke_cert(self, cn):
+        """Revokes the certificates for a client
+
+        Args:
+            cn (str): The common name of the client
+        """
+
+        def revoke_error_handler(e):
+            if e.returncode == 1:
+                if EASYRSA_ALREADY_REVOKED_MSG in e.stderr:
+                    return True
+                if EASYRSA_NONEXIST_REVOKE_MSG in e.stderr:
+                    raise EntryNotFoundError(cn)
+            return False
+
+        proc = self._run(
+            [self.easyrsa, 'revoke', cn],
+            revoke_error_handler,
             input=b'yes',
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            cwd=OPENVPN,
-            check=True
         )
-    except subprocess.CalledProcessError as e:
-        if e.returncode == 1 and EASYRSA_ALREADY_REVOKED_MSG in e.stderr:
-            logging.info("Already revoked certificate for '{}'".format(cn))
+        if proc:
+            logging.info("Revoked certificate for '{}'".format(cn))
         else:
-            print(e.stderr.decode('utf-8'))
-            raise
-    else:
-        logging.info("Revoked certificate for '{}'".format(cn))
+            logging.info("Already revoked certificate for '{}'".format(cn))
 
-        _run(
-            [path.join(EASYRSA, 'easyrsa'), 'gen-crl'],
-            cwd=OPENVPN
-        )
+            self._run(
+                    [self.easyrsa, 'gen-crl'],
+            )
 
-def list_certs(cn=None):
-    """Returns all certificates information, or for a particular client
+    def list_certs(self, cn=None):
+        """Returns all certificates information, or for a particular client
 
-    Args:
-        cn (str): The common name of the client (defaults to None)
+        Args:
+            cn (str): The common name of the client (defaults to None)
 
-    Returns:
-        list[CertificateListing]: The certificate information for all certificates on the challenge, or for a specific client if specified
-    """
-    listing = list()
+        Returns:
+            list[CertificateListing]: The certificate information for all certificates on the challenge, or for a specific client if specified
+        """
+        listing = list()
 
-    with open(path.join(EASYRSA_PKI, 'index.txt')) as index_file:
-        for line in index_file:
-            entry = CertificateListing.parse(line)
-            if entry is not None and (cn is None or entry.cn == cn):
-                listing.append(entry)
+        with open(path.join(self.easyrsa_pki, 'index.txt')) as index_file:
+            for line in index_file:
+                entry = CertificateListing.parse(line)
+                if entry is not None and (cn is None or entry.cn == cn):
+                    listing.append(entry)
 
-    return listing
+        return listing
 
-def _try_remove(path):
-    try:
-        remove(path)
-    except FileNotFoundError:
-        pass
+    def _try_remove(self, path):
+        try:
+            remove(path)
+        except FileNotFoundError:
+            pass
 
-def remove_cert(cn):
-    """Removes certificates and index entries for a specified client
+    def remove_cert(self, cn):
+        """Removes certificates and index entries for a specified client
 
-    Args:
-        cn (str): The common name of the client (defaults to None)
-    """
-    for entry in list_certs(cn):
-        _try_remove(path.join(EASYRSA_PKI, 'certs_by_serial', entry.serial + '.pem'))
+        Args:
+            cn (str): The common name of the client (defaults to None)
+        """
+        for entry in self.list_certs(cn):
+            self._try_remove(path.join(self.easyrsa_pki, 'certs_by_serial', entry.serial + '.pem'))
 
-    _try_remove(path.join(EASYRSA_PKI, 'issued', cn + '.crt'))
-    _try_remove(path.join(EASYRSA_PKI, 'private', cn + '.key'))
-    _try_remove(path.join(EASYRSA_PKI, 'reqs', cn + '.req'))
+        self._try_remove(path.join(self.easyrsa_pki, 'issued', cn + '.crt'))
+        self._try_remove(path.join(self.easyrsa_pki, 'private', cn + '.key'))
+        self._try_remove(path.join(self.easyrsa_pki, 'reqs', cn + '.req'))
 
-    new_index_lines = []
-    with open(path.join(EASYRSA_PKI, 'index.txt')) as index_file:
-        for line in index_file:
-            entry = CertificateListing.parse(line) 
-            if entry is not None and entry.cn != cn:
-                new_index_lines.append(line)
+        new_index_lines = []
+        with open(path.join(self.easyrsa_pki, 'index.txt')) as index_file:
+            for line in index_file:
+                entry = CertificateListing.parse(line) 
+                if entry is not None and entry.cn != cn:
+                    new_index_lines.append(line)
 
-    with open(path.join(EASYRSA_PKI, 'index.txt'), 'w') as index_file:
-        index_file.write('\n'.join(new_index_lines))
+        with open(path.join(self.easyrsa_pki, 'index.txt'), 'w') as index_file:
+            index_file.write(''.join(new_index_lines))
+
+class RegistrarEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, CertificateListing):
+            return {
+                'status': obj.status,
+                'expires': obj.expires,
+                'revoked': obj.revoked,
+                'serial': obj.serial,
+                'reason': obj.reason,
+                'cn': obj.cn
+            }
+        elif isinstance(obj, CertificateListing.Status):
+            return str(obj)
+        elif isinstance(obj, datetime):
+            return obj.strftime(CertificateListing.ans1_format)
+        else:
+            return json.JSONEncoder.default(self, obj)
 
 def parse_args():
-    global EASYRSA
-    global OPENVPN
-    global EASYRSA_PKI
-
     parser = argparse.ArgumentParser(
         description = "Manages client certificates and configurations for Naumachia challeneges",
         formatter_class = argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('challenge', help="the short name for the challenge")
-    parser.add_argument('--openvpn', metavar='PATH', help="path to the directory for openvpn configurations", default=OPENVPN)
-    parser.add_argument('--easyrsa', metavar='PATH', help="path to the directory containing the easyrsa executable", default=EASYRSA)
+    parser.add_argument('--openvpn', metavar='PATH', help="path to the directory for openvpn configurations", default=None)
+    parser.add_argument('--easyrsa', metavar='PATH', help="path to the directory containing the easyrsa executable", default=None)
     subparsers = parser.add_subparsers(dest='action', help="what you wish to do with the client config")
 
     parser_add = subparsers.add_parser('add', help="create a set of certificates for a client")
@@ -261,18 +317,6 @@ def parse_args():
 
     args = parser.parse_args()
 
-    if args.openvpn == openvpn_default:
-        args.openvpn = args.openvpn.format(challenge=args.challenge)
-
-    EASYRSA = args.easyrsa
-    environ["EASYRSA"] = EASYRSA
-
-    OPENVPN = args.openvpn
-    environ["OPENVPN"] = OPENVPN
-
-    if "EASYRSA_PKI" not in environ:
-        EASYRSA_PKI = path.join(OPENVPN, "pki")
-
     return args
 
 if __name__ == "__main__":
@@ -280,24 +324,26 @@ if __name__ == "__main__":
 
     args = parse_args()
 
+    regi = Registrar(args.challenge, args.openvpn, args.easyrsa)
+
     if args.action == 'add':
         if args.recreate:
-            remove_cert(args.client)
-        add_cert(args.client)
+            regi.remove_cert(args.client)
+        regi.add_cert(args.client)
 
     elif args.action == 'get':
         if args.add:
-            add_cert(args.client)
-        print(get_config(args.client))
+            regi.add_cert(args.client)
+        print(regi.get_config(args.client))
 
     elif args.action == 'revoke':
-        revoke_cert(args.client)
+        regi.revoke_cert(args.client)
 
     elif args.action == 'remove':
-        remove_cert(args.client)
+        regi.remove_cert(args.client)
 
     elif args.action == 'list':
-        for entry in list_certs(args.client):
+        for entry in regi.list_certs(args.client):
             print(entry.cn, end=' ')
             if entry.status == CertificateListing.Status.EXPIRED:
                 print("[EXPIRED]")

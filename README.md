@@ -33,9 +33,14 @@ In order to log into the VPN tunnel and access Naumachia a client needs the corr
 To generate a client config for your challenge either:
 * Use the registrar CLI
   * Ex: `./registrar/registrar.py mitm add alice` will create certs for alice and `./registrar/registar.py mitm get alice` with output the configuration needed for alice to connect to the 'mitm' challenege
-* Use the registrar RPC server
+* Use the registrar server
   * Add `registrar: true` to the challenge config
-  * Connect to the RPC server defined in the compose file and use the `add_cert` and `get_config` methods with your client's common name
+  * Issue REST API calls to registrar server to manage certificates and retrieve configuration files
+    * /<chal>/list?cn=<cn> (cn optional) : List all registered certificates or certificates for a specific cn
+    * /<chal>/add?cn=<cn> : Create a new certificate with the specified common name (cn)
+    * /<chal>/revoke?cn=<cn> : Revoke the certificate with the specified common name (cn)
+    * /<chal>/remove?cn=<cn> : Remove the certificate with the specified common name (cn)
+    * /<chal>/get?cn=<cn> : Get the OpenVPN configuration file for the user with specified common name (cn)
 
 #### Run it!
 To run Naumachia simply bring up the enviroment with the [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)
