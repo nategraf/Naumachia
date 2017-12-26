@@ -1,6 +1,8 @@
 DEBUG: false
 
 domain: mydomain.net
+registrar: true
+registar_port: 3960
 
 challenges:
     example:
@@ -8,5 +10,4 @@ challenges:
       files:
           - example/docker-compose.yml
           - common/docker-compose.yml
-      registrar: true
       commonname: foo.bar.mydomain.net

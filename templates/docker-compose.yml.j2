@@ -36,19 +36,24 @@ services:
             - NAUM_FILES={{ chal.files|tojson }}
             - NAUM_CHAL="{{ name }}"
 
-    {% if chal.registrar -%}
-    registrar-{{ name }}:
-        extends:
-            file: openvpn-compose.yml
-            service: registrar
+    {% endfor -%}
+    {% if registrar -%}
+    registrar:
+        build:
+            context: ./registrar/build
+        image: naumachia/registrar
         volumes:
-            - ./openvpn/config/{{ name }}/ovpn_env.sh:/etc/openvpn/ovpn_env.sh:ro
-            - ./openvpn/config/{{ name }}/pki:/etc/openvpn/pki
+            - ./openvpn/config/:/var/config
+            - ./registrar/app:/var/app:ro
+        environment:
+            - OPENVPN_BASE=/var/config
         networks:
             internal:
+        ports:
+            - "{{ registrar_port }}:3960"
+        command: [python, /var/app/server.py]
 
     {% endif -%}
-    {% endfor -%}
     redis:
         image: "redis:alpine"
         networks:

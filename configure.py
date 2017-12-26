@@ -13,7 +13,9 @@ from os import path, mkdir, chmod
 global_defaults = {
     'DEBUG': False,
     'domain': None,
-    'challenges': {}
+    'challenges': {},
+    'registrar': True,
+    'registrar_port': 3960
 }
 
 challenge_defaults = {

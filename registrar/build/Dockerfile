@@ -1,22 +1,11 @@
 FROM python:3.5-alpine
 
-# Inspired by kylemanna/docker-openvpn
+COPY ./requirements.txt ./requirements.txt
+RUN pip install -r ./requirements.txt
 
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories && \
-    apk add --update bash easy-rsa && \
-    ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin && \
-    rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
+    apk add --no-cache --update bash 'easy-rsa<3.0.3'
 
-COPY ./getclient /usr/local/bin/getclient 
-RUN chmod +x /usr/local/bin/getclient
-
-ENV OPENVPN /etc/openvpn
-ENV EASYRSA /usr/share/easy-rsa
-ENV EASYRSA_PKI $OPENVPN/pki
-ENV EASYRSA_VARS_FILE $OPENVPN/vars
-RUN mkdir $OPENVPN
-RUN mkdir $OPENVPN/pki
+ENV EASYRSA /usr/share/easy-rsa/
 
 EXPOSE 3960
-
-CMD ["python3", "app/registrar.py"]

@@ -9,7 +9,7 @@ script_dir = path.dirname(__file__)
 
 app = Flask(__name__)
 
-port                = int(environ.get("REGISTRAR_PORT", 8080))
+port                = int(environ.get("REGISTRAR_PORT", 3960))
 app.secret_key      = environ.get("REGISTRAR_SECRET", "K2ptdnpfjLnFrA2c")
 #cert_path           = environ.get("CERT_PATH", "/certs/localhost.cert")
 #key_path            = environ.get("KEY_PATH", "/certs/localhost.key")
