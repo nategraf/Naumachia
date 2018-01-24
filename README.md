@@ -35,6 +35,7 @@ To generate a client config for your challenge either:
   * Ex: `./registrar/registrar.py mitm add alice` will create certs for alice and `./registrar/registar.py mitm get alice` with output the configuration needed for alice to connect to the 'mitm' challenege
 * Use the registrar server
   * Add `registrar: true` to the challenge config
+    * NOTE: When using the registrar server ensure it's inaccesible by the public. The registrar server is unathenticated and can be trivialy used to issue a DOS attack or worse to your Naumachia instance
   * Issue REST API calls to registrar server to manage certificates and retrieve configuration files
     * /<chal>/list?cn=<cn> (cn optional) : List all registered certificates or certificates for a specific cn
     * /<chal>/add?cn=<cn> : Create a new certificate with the specified common name (cn)
