@@ -49,6 +49,7 @@ services:
             - OPENVPN_BASE=/var/config
         networks:
             internal:
+            {{ registrar_network }}:
         ports:
             - "{{ registrar_port }}:3960"
         command: [python, /var/app/server.py]
@@ -89,3 +90,7 @@ services:
 networks:
     internal:
         internal: true
+    {% if registrar_network != "default" -%}
+    {{ registrar_network }}:
+        external: true
+    {%- endif -%}

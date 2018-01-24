@@ -1,8 +1,10 @@
 DEBUG: false
 
 domain: mydomain.net
+
 registrar: true
 registar_port: 3960
+registar_network: default
 
 challenges:
     example:

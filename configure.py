@@ -15,7 +15,8 @@ global_defaults = {
     'domain': None,
     'challenges': {},
     'registrar': True,
-    'registrar_port': 3960
+    'registrar_port': 3960,
+    'registrar_network': 'default'
 }
 
 challenge_defaults = {
