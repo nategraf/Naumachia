@@ -6,7 +6,3 @@ services:
         image: naumachia/dhcpd
         networks:
             default:
-
-networks:
-    default:
-        internal: true
