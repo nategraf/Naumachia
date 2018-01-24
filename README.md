@@ -37,11 +37,11 @@ To generate a client config for your challenge either:
   * Add `registrar: true` to the challenge config
     * NOTE: When using the registrar server ensure it's inaccesible by the public. The registrar server is unathenticated and can be trivialy used to issue a DOS attack or worse to your Naumachia instance
   * Issue REST API calls to registrar server to manage certificates and retrieve configuration files
-    * /<chal>/list?cn=<cn> (cn optional) : List all registered certificates or certificates for a specific cn
-    * /<chal>/add?cn=<cn> : Create a new certificate with the specified common name (cn)
-    * /<chal>/revoke?cn=<cn> : Revoke the certificate with the specified common name (cn)
-    * /<chal>/remove?cn=<cn> : Remove the certificate with the specified common name (cn)
-    * /<chal>/get?cn=<cn> : Get the OpenVPN configuration file for the user with specified common name (cn)
+    * /\<chal\>/list?cn=\<cn\> (cn optional) : List all registered certificates or certificates for a specific cn
+    * /\<chal\>/add?cn=\<cn\> : Create a new certificate with the specified common name (cn)
+    * /\<chal\>/revoke?cn=\<cn\> : Revoke the certificate with the specified common name (cn)
+    * /\<chal\>/remove?cn=\<cn\> : Remove the certificate with the specified common name (cn)
+    * /\<chal\>/get?cn=\<cn\> : Get the OpenVPN configuration file for the user with specified common name (cn)
 
 #### Run it!
 To run Naumachia simply bring up the enviroment with the [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)
