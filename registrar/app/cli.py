@@ -62,8 +62,8 @@ if __name__ == "__main__":
     elif args.action == 'list':
         for entry in regi.list_certs(args.client):
             print(entry.cn, end=' ')
-            if entry.status == CertificateListing.Status.EXPIRED:
+            if entry.status == registrar.CertificateListing.Status.EXPIRED:
                 print("[EXPIRED]")
-            elif entry.status == CertificateListing.Status.REVOKED:
+            elif entry.status == registrar.CertificateListing.Status.REVOKED:
                 print("[REVOKED]")
             print()
