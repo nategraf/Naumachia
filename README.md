@@ -1,4 +1,5 @@
 # Naumachia
+[![Discord](https://img.shields.io/discord/404881131058626570.svg)](https://discord.gg/gH9ZgeT)
 
 ### A multi-tenant network sandbox for security challenges
 
