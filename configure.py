@@ -8,7 +8,7 @@ import argparse
 import subprocess
 import requests
 import tarfile
-from os import path, mkdir, chmod
+from os import path, makedirs, chmod
 
 global_defaults = {
     'DEBUG': False,
@@ -31,7 +31,7 @@ def install_easyrsa():
     install_dir = path.abspath(path.join(path.dirname(__file__), 'tools'))
 
     if not path.isdir(install_dir):
-        mkdir(install_dir)
+        makedirs(install_dir)
 
     with requests.get(EASYRSA_URL, stream=True) as resp:
         tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         print("\nConfiguring '{}'".format(name))
 
         if not path.isdir(config_dirname):
-            mkdir(config_dirname)
+            makedirs(config_dirname)
             print("Created new openvpn config directory {}".format(config_dirname))
 
             context = {'chal': chal}
