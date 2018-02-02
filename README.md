@@ -5,7 +5,7 @@ If you are interested in using or contributing to this project let me (nategraf)
 
 ### A multi-tenant network sandbox for security challenges
 
-**The ambition of this project** is to enable the deployment of network exploit challenges for fun and non-profit. The main target is providing fun and challenging exercises for CTFs, with the secondary goal of being used in a classroom setting, and more applications to come.
+**The ambition of [Naumachia](https://en.wikipedia.org/wiki/Naumachia)** is to enable the deployment of network exploit challenges for fun and non-profit. The main target is providing fun and challenging exercises for CTFs, with the secondary goal of being used in a classroom setting, and more applications to come.
 
 It **provides challengers with layer two (LAN) access to their own instance of a vitualized network and target machines** as defined by the challenge specification. When a user logs in, a cluster is brought online just for them, and when they log out it is torn down. Optionally, any data may be persisted.
 
