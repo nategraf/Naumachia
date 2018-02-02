@@ -35,6 +35,7 @@ services:
         environment:
             - NAUM_FILES={{ chal.files|tojson }}
             - NAUM_CHAL="{{ name }}"
+        restart: unless-stopped
 
     {% endfor -%}
     {% if registrar -%}
@@ -53,6 +54,7 @@ services:
         ports:
             - "{{ registrar_port }}:3960"
         command: [python, /var/app/server.py]
+        restart: unless-stopped
 
     {% endif -%}
     redis:
