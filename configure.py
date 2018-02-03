@@ -140,13 +140,12 @@ if __name__ == "__main__":
             makedirs(config_dirname)
             print("Created new openvpn config directory {}".format(config_dirname))
 
-            context = {'chal': chal}
-            context.update(settings)
-
-            render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
-            render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)
-
             init_pki(args.easyrsa, config_dirname, chal['commonname'])
-
         else:
             print("Using existing openvpn config directory {}".format(config_dirname))
+
+        context = {'chal': chal}
+        context.update(settings)
+
+        render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
+        render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)
