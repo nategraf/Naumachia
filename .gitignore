@@ -25,3 +25,4 @@ openvpn/config/*
 
 # Filter out where we pull down easyrsa
 tools
+logs
