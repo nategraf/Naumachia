@@ -1,6 +1,8 @@
 mode server
 tls-server
 
+log /var/log/openvpn.log
+
 verb 3
 key /etc/openvpn/pki/private/{{ chal.commonname }}.key
 ca /etc/openvpn/pki/ca.crt

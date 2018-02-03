@@ -12,17 +12,24 @@ def vlan_if_name(interface, vlan):
 
 class Cmd:
     def __init__(self):
-        self.args = ['true']
+        self.args = []
 
     def __str__(self):
-        return "<{} '{}'>".format(self.__class__.__name__, " ".join(self.args))
+        return "<{0} '{1}'>".format(self.__class__.__name__, " ".join(self.args))
 
-    def run(self):
-        logging.debug("Launching '{}'".format(self))
+    def run(self, **kwargs):
+        logging.debug("Launching %s", self)
         try:
-            subprocess.run(self.args, check=True)
-        except:
-            logging.error("Failed to carry out '{}'".format(self.__class__.__name__))
+            subprocess.run(
+                self.args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=True,
+                **kwargs
+            )
+        except subprocess.CalledProcessError as e:
+            logging.error("%s failed with exit code %d\nCommand: %s", self.__class__.__name__, e.returncode, " ".join(self.args))
+            logging.error(e.output.decode('utf-8'))
             raise
 
 class IpFlushCmd(Cmd):
@@ -76,12 +83,7 @@ class VlanCmd(Cmd):
            self.args.extend(('show', self.vlan_if))
 
     def run(self):
-        logging.debug("Launching '{}'".format(self))
-        try:
-            subprocess.run(self.args, check=True)
-        except:
-            logging.error("Failed to carry out VlanCmd task")
-            raise
+        super().run()
         LinkUpCmd(self.vlan_if).run()
 
 class BrctlCmd(Cmd):

@@ -25,6 +25,7 @@ services:
             - redis
         volumes:
             - ./openvpn/config/{{ name }}:/etc/openvpn
+            - ./logs/{{ name }}:/var/log
         networks:
             default:
                 aliases:
@@ -58,14 +59,17 @@ services:
 
     {% endif -%}
     redis:
-        image: "redis:alpine"
+        image: redis:alpine
         networks:
             internal:
                 aliases:
                     - "$REDIS_HOSTNAME"
         volumes:
             - ./redis/config:/usr/local/etc/redis
-        command: [redis-server, /usr/local/etc/redis/redis.conf]
+            - ./logs:/data/log
+        environment:
+            - REDIS_PASSWORD
+        command: [redis-server, /usr/local/etc/redis/redis.conf, --requirepass, $REDIS_PASSWORD]
         restart: unless-stopped
 
     cluster-manager:
@@ -79,8 +83,10 @@ services:
             - ./challenges:/challenges
             - /var/run/docker.sock:/var/run/docker.sock
             - /var/run/docker/netns/default:/var/run/netns/host
+            - ./logs:/var/log
         command: [python3, /app/manager.py]
         environment:
+            - LOG_FILE=/var/log/manager.log
             - REDIS_HOSTNAME
             - REDIS_PORT
             - REDIS_DB

@@ -25,10 +25,10 @@ class Listener(threading.Thread):
         self.stop_event = threading.Event()
 
         self.pubsub.psubscribe(channel)
-        logging.info("Listener on {} subscribed".format(self.channel))
+        logging.info("Listener on %s subscribed", self.channel)
 
     def dispatch(self, item):
-        logging.debug("Recieved event '{}' '{}' '{}'".format(item['type'], item['channel'], item['data']))
+        logging.debug("Recieved event '%s' '%s' '%s'", item['type'], item['channel'], item['data'])
         if re.match(r'p?message', item['type']):
             channel = item['channel'].decode('utf-8')
             data = item['data'].decode('utf-8')
@@ -41,7 +41,7 @@ class Listener(threading.Thread):
     def run(self):
         for item in self.pubsub.listen():
             if self.stop_event.is_set():
-                logging.info("Listener on {} unsubscribed and finished".format(self.channel))
+                logging.info("Listener on %s unsubscribed and finished", self.channel)
                 break
             else:
                 self.dispatch(item)
@@ -58,17 +58,14 @@ class ClusterWorker(threading.Thread):
     def ensure_cluster_up(self, user, vpn, cluster, connection):
         exists = cluster.exists() 
         if exists and cluster.status == 'up':
-            logging.info("New connection {} to exsiting cluster {}"
-                         .format(connection.id, cluster.id))
+            logging.info("New connection %s to exsiting cluster %s", connection.id, cluster.id)
         else:
             ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
 
             if not exists or cluster.status == 'stopped':
-                logging.info("Starting cluster {} on new connection {}"
-                             .format(cluster.id, connection.id))
+                logging.info("Starting cluster %s on new connection %s", cluster.id, connection.id)
             else:
-                logging.info("New cluster {} on new connection {}"
-                             .format(cluster.id, connection.id))
+                logging.info("New cluster %s on new connection %s", cluster.id, connection.id)
 
             cluster.status = 'up'
 
@@ -78,13 +75,13 @@ class ClusterWorker(threading.Thread):
         try:
             if cluster.status != 'stopped':
                 ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.chal.files).run()
-                logging.info("Stopping cluster {}".format(cluster.id))
+                logging.info("Stopping cluster %s", cluster.id)
                 cluster.status = 'stopped'
 
             else:
-                logging.info("No action for already stopped cluster {}".format(cluster.id))
+                logging.info("No action for already stopped cluster %s", cluster.id)
         except RedisKeyError:
-            logging.info("No action for user {} with no registered cluster".format(user.id))
+            logging.info("No action for user %s with no registered cluster", user.id)
 
     def bridge_link_if_ready(self, user, vpn, cluster):
             # Bridge in the vlan interface if it is ready to go
@@ -93,8 +90,7 @@ class ClusterWorker(threading.Thread):
                 vlan_if = vlan_if_name(vpn.veth, user.vlan)
                 BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
                 vpn.links[user.vlan] = 'bridged'
-                logging.info("Added {} to bridge {} for cluster {}"
-                             .format(vlan_if, bridge_id, cluster.id))
+                logging.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
 
             # Strip the IP address form the bridge to prevent host attacks. 
             # Hopefully this will be replaced by an option to never give the bridge an ip at all
@@ -105,7 +101,7 @@ class ClusterWorker(threading.Thread):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
-            logging.debug("ClusterWorker responding to 'set' on connection '{}' alive status".format(addr))
+            logging.debug("ClusterWorker responding to 'set' on connection '%s' alive status", addr)
 
             user = connection.user
             vpn = connection.vpn
@@ -119,15 +115,14 @@ class ClusterWorker(threading.Thread):
 
             else:
                 if user.status == 'active':
-                    logging.info("Removed connection {} for active user {}"
-                                     .format(connection.id, user.id))
+                    logging.info("Removed connection %s for active user %s", connection.id, user.id)
 
                 if user.status == 'disconnected':
                     self.ensure_cluster_stopped(user, vpn, cluster)
 
                 connection.delete()
         else:
-            logging.debug("ClusterWorker not responding to '{}' event".format(self.action))
+            logging.debug("ClusterWorker not responding to '%s' event", self.action)
 
 def ensure_veth_up(vpn, verbose=False):
     """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
@@ -138,11 +133,11 @@ def ensure_veth_up(vpn, verbose=False):
     if vpn.veth_state == 'down':
         LinkUpCmd(vpn.veth).run()
         vpn.veth_state = 'up'
-        logging.info("Set veth {} on vpn tunnel {} up".format(vpn.veth, vpn.id))
+        logging.info("Set veth %s on vpn tunnel %s up", vpn.veth, vpn.id)
 
     else:
         if verbose:
-            logging.info("veth {} on vpn tunnel {} already up.".format(vpn.veth, vpn.id))
+            logging.info("veth %s on vpn tunnel %s already up.", vpn.veth, vpn.id)
 
 class VethWorker(threading.Thread):
     """
@@ -189,14 +184,14 @@ class VlanWorker(threading.Thread):
     def bring_up_link(self, vpn, user):
         try:
             VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
-            logging.info("New vlan link on vpn {} for vlan {}".format(vpn.id, user.vlan))
+            logging.info("New vlan link on vpn %s for vlan %d", vpn.id, user.vlan)
         except CalledProcessError as e:
             if e.returncode != 2:
                 raise
 
             # Raised a CalledProcessError is the link doesn't exist
             VlanCmd(VlanCmd.SHOW, veth, vlan).run()
-            logging.warn("Unrecorded exsting link {}:{}".format(vpn_id, vlan))
+            logging.warn("Unrecorded exsting link %s:%d", vpn_id, vlan)
 
         vpn.links[user.vlan] = 'up'
 
@@ -208,18 +203,17 @@ class VlanWorker(threading.Thread):
             bridge_id = get_bridge_id(cluster.id)
             BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
             vpn.links[user.vlan] = 'bridged'
-            logging.info("Added {} to bridge {} for cluster {}"
-                         .format(vlan_if, bridge_id, cluster.id))
+            logging.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
 
         else:
             logging.info(
-                    "Cluster {} not up. Defering addition of {} to a bridge".format(cluster.id, vlan_if))
+                    "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
 
 
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
-            logging.debug("VlanWorker responding to 'set' on connection '{}' alive status".format(addr))
+            logging.debug("VlanWorker responding to 'set' on connection '%s' alive status", addr)
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
@@ -233,8 +227,7 @@ class VlanWorker(threading.Thread):
 
                 link_status = vpn.links[user.vlan]
                 if link_status == 'bridged':
-                    logging.info("New connection {} traversing existing vlan link {}"
-                                 .format(connection.id, vlan_if))
+                    logging.info("New connection %s traversing existing vlan link %s", connection.id, vlan_if)
 
                 else:
                     if not link_status or link_status == 'down':
@@ -243,7 +236,7 @@ class VlanWorker(threading.Thread):
                     self.bridge_cluster(vpn, user)
 
         else:
-            logging.debug("VlanWorker not responding to '{}' event".format(self.action))
+            logging.debug("VlanWorker not responding to '%s' event", self.action)
 
 def get_bridge_id(cluster_id):
     cluster_id = ''.join(c for c in cluster_id if c.isalnum())
