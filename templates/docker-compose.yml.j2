@@ -28,8 +28,6 @@ services:
             - ./logs/{{ name }}:/var/log
         networks:
             default:
-                aliases:
-                    - "{{ name }}.{{ domain }}"
             internal:
         ports:
             - "{{ chal.port }}:1194/udp"
