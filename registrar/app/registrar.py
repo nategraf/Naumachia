@@ -30,7 +30,7 @@ class CertificateListing:
         cn (str): The common name of the certificate holder
     """
     ans1_format = "%y%m%d%H%M%SZ"
-    index_format = r"(?P<status>[VRE])\s+(?P<expires>[0-9]{12}Z)\s+(?P<revoked>[0-9]{12}Z)?\s*(?P<serial>[0-9A-F]+)\s+(?P<reason>\S+)\s+/CN=(?P<cn>[\w.]+)"
+    index_format = r"(?P<status>[VRE])\s+(?P<expires>[0-9]{12}Z)\s+(?P<revoked>[0-9]{12}Z)?\s*(?P<serial>[0-9A-F]+)\s+(?P<reason>\S+)\s+/CN=(?P<cn>[\w\d .]+)"
 
     class Status(Enum):
         VALID = 1
