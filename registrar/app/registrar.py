@@ -6,6 +6,8 @@ import subprocess
 import json
 import sys
 import re
+import base64
+import binascii
 
 EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
@@ -30,7 +32,7 @@ class CertificateListing:
         cn (str): The common name of the certificate holder
     """
     ans1_format = "%y%m%d%H%M%SZ"
-    index_format = r"(?P<status>[VRE])\s+(?P<expires>[0-9]{12}Z)\s+(?P<revoked>[0-9]{12}Z)?\s*(?P<serial>[0-9A-F]+)\s+(?P<reason>\S+)\s+/CN=(?P<cn>[\w\d .]+)"
+    index_format = r"(?P<status>[VRE])\s+(?P<expires>[0-9]{12}Z)\s+(?P<revoked>[0-9]{12}Z)?\s*(?P<serial>[0-9A-F]+)\s+(?P<reason>\S+)\s+/CN=(?P<cn>[\w .]+)"
 
     class Status(Enum):
         VALID = 1
@@ -151,12 +153,25 @@ class Registrar:
             else:
                 return None
 
+    @staticmethod
+    def _escape(name):
+        return base64.b32encode(name.encode('utf-8')).decode('utf-8').strip('=')
+
+    @staticmethod
+    def _unescape(name):
+        missing_padding = len(name) % 8
+        if missing_padding != 0:
+            name += '=' * (8 - missing_padding)
+        return base64.b32decode(name.encode('utf-8')).decode('utf-8')
+
     def add_cert(self, cn):
         """Creates certificates for a client
 
         Args:
             cn (str): The common name of the client
         """
+        cn = self._escape(cn)
+
         proc = self._run(
             [self.easyrsa, 'build-client-full', cn, 'nopass'],
             lambda e: e.returncode == 1 and EASYRSA_ALREADY_EXISTS_MSG in e.stderr,
@@ -175,6 +190,7 @@ class Registrar:
         Returns:
             str: The file text for the client's OpenVPN client
         """
+        cn = self._escape(cn)
 
         def get_error_handler(e):
             if e.returncode == 1:
@@ -196,6 +212,7 @@ class Registrar:
         Args:
             cn (str): The common name of the client
         """
+        cn = self._escape(cn)
 
         def revoke_error_handler(e):
             if e.returncode == 1:
@@ -228,12 +245,20 @@ class Registrar:
         Returns:
             list[CertificateListing]: The certificate information for all certificates on the challenge, or for a specific client if specified
         """
+        if cn:
+            cn = self._escape(cn)
+
         listing = list()
 
         with open(path.join(self.easyrsa_pki, 'index.txt')) as index_file:
             for line in index_file:
                 entry = CertificateListing.parse(line)
                 if entry is not None and (cn is None or entry.cn == cn):
+                    try:
+                        entry.cn = self._unescape(entry.cn)
+                    except binascii.Error:
+                        pass # This is not an encoded name
+
                     listing.append(entry)
 
         return listing
@@ -250,6 +275,8 @@ class Registrar:
         Args:
             cn (str): The common name of the client (defaults to None)
         """
+        cn = self._escape(cn)
+
         for entry in self.list_certs(cn):
             self._try_remove(path.join(self.easyrsa_pki, 'certs_by_serial', entry.serial + '.pem'))
 
