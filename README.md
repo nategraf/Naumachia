@@ -55,6 +55,8 @@ Challenges in Naumachia are defined by a docker-compose.yml file and the rousour
 
 Consider the example provided as [challenges/example/docker-compose.yml](https://github.com/nategraf/Naumachia/blob/master/challenges/example/docker-compose.yml)
 
+For examples of problems deployed in past CTFs go to the [public challenges repo](https://github.com/nategraf/naumachia-challenges-public)
+
 ```yaml
 version: '2.1'
 
