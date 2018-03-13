@@ -131,5 +131,5 @@ If using the CLI on Linux, or MacOS you may still need to more steps
 3. Bring up the new TAP network interface
   * Ex: `ip link set tap0 up`
 4. Obtain an IP address by DHCP (if DHCP is enabled for the challenge)
-  * Ex: `udhcpc -i tap0``
-  * Ex: `dhclient tap0``
+  * Ex: `udhcpc -i tap0`
+  * Ex: `dhclient tap0`
