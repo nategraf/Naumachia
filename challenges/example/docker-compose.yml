@@ -14,9 +14,9 @@ version: '2.1'
 services:
     bob:
         build: ./bob
-        image: naumachia/example/bob
+        image: naumachia/example.bob
         environment:
-            - CTF_FLAG=FOOBAR
+            - CTF_FLAG=fOOBaR
 
     alice:
         build: ./alice
@@ -24,11 +24,11 @@ services:
         depends_on:
             - bob
         environment:
-            - CTF_FLAG=FOOBAR
+            - CTF_FLAG=fOOBaR
 
 # To avoid users from using this challenge as a personal VPN
-# gateway to the internet, it is important to always specify the
-# default network as internal (i.e. not connected to teh internet)
+# gateway to the internet, it is important to specify the
+# default network as internal (i.e. not connected to the internet)
 
 networks:
     default:

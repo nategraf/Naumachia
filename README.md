@@ -59,7 +59,7 @@ Consider the example provided as [challenges/example/docker-compose.yml](https:/
 version: '2.1'
 
 # The file defines the configuration for simple Nauachia challenge
-# where a sucessful man-in-the-middle (MTIM) attack
+# where a sucessful man-in-the-middle (MTIM) attack 
 # (such as ARP poisoning) provides a solution
 
 # If you are unfamiliar with docker-compose this might be helpful:
@@ -72,9 +72,9 @@ version: '2.1'
 services:
     bob:
         build: ./bob
-        image: naumachia/example/bob
+        image: naumachia/example.bob
         environment:
-            - CTF_FLAG=FOOBAR
+            - CTF_FLAG=fOOBaR
 
     alice:
         build: ./alice
@@ -82,10 +82,10 @@ services:
         depends_on:
             - bob
         environment:
-            - CTF_FLAG=FOOBAR
+            - CTF_FLAG=fOOBaR
 
 # To avoid users from using this challenge as a personal VPN
-# gateway to the internet, it is important to always specify the
+# gateway to the internet, it is important to specify the
 # default network as internal (i.e. not connected to the internet)
 
 networks:
