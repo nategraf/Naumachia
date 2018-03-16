@@ -1,0 +1,7 @@
+{
+    "name": "G",
+    "interfaces": [
+        "192.168.0.1/28"
+    ],
+    "forward": false
+}

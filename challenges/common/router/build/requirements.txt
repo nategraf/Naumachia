@@ -1,0 +1,2 @@
+inotify==0.2.9
+ifaddr==0.1.4
