@@ -1,4 +1,4 @@
-from ipaddress import IPv4Network
+from ipaddress import IPv4Network, IPv4Interface
 import json
 
 class Network:
@@ -26,6 +26,9 @@ class Network:
         for iface in node.interfaces:
             iface.associate(self)
 
+    def to_json(self):
+        return {k: node.to_json() for k, node in self.nodes.items()}
+
 class Node:
     def __init__(self, name, addrs, forward):
         self.name = name
@@ -50,6 +53,32 @@ class Node:
                             visited.add(peer)
                             q.append((peer, via or net_iface))
         return routes
+
+    # Find the shortest path to a node and return the address of it's nearest interface
+    def resolve(self, peername):
+        if peername == self.name:
+            return '127.0.0.1'
+
+        visited = set([self])
+        q = [self]
+        while q:
+            curr = q.pop(0)
+            if isinstance(curr, Subnet):
+                for iface in curr.interfaces:
+                    if iface.node.name == peername:
+                        return str(IPv4Interface(iface.addr).ip)
+
+                    if iface.node not in visited:
+                        visited.add(iface.node)
+                        q.append(iface.node)
+            elif curr.forward or curr is self:
+                for iface in curr.interfaces:
+                    if iface.subnet not in visited:
+                        visited.add(iface.subnet)
+                        q.append(iface.subnet)
+
+        else:
+            return None
 
     @classmethod
     def from_json(cls, obj):
@@ -81,7 +110,7 @@ class Interface:
     def dissociate(self):
         if self.subnet is not None:
             self.subnet.detach(self)
-
+            self.subnet = None
 
 class Subnet:
     def __init__(self, ipnet):
@@ -96,7 +125,7 @@ class Subnet:
         self._interfaces[iface.addr] = iface
 
     def detach(self, iface):
-        self._interfaces.pop(iface.addr)
+        self._interfaces.pop(iface.addr, None)
 
 class Route:
     def __init__(self, subnet, via):
