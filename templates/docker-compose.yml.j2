@@ -1,7 +1,7 @@
 version: '2.1'
 
 services:
-    {% if DEBUG -%}
+    {% if eve -%}
     # Eve is container designed to connect to the network for testing a debugging
     eve:
         build: ./eve/build
@@ -49,9 +49,9 @@ services:
             - OPENVPN_BASE=/var/config
         networks:
             internal:
-            {{ registrar_network }}:
+            {{ registrar.network }}:
         ports:
-            - "{{ registrar_port }}:3960"
+            - "{{ registrar.port }}:3960"
         command: [python, /var/app/server.py]
         restart: unless-stopped
 
@@ -70,15 +70,15 @@ services:
         command: [redis-server, /usr/local/etc/redis/redis.conf, --requirepass, $REDIS_PASSWORD]
         restart: unless-stopped
 
-    cluster-manager:
-        build: ./cluster-manager/build
+    manager:
+        build: ./manager/build
         depends_on:
             - redis
         networks: 
             internal:
         volumes:
-            - ./cluster-manager/app:/app
-            - ./challenges:/challenges
+            - ./manager/app:/app
+            - {{ challenges_directory }}:/challenges
             - /var/run/docker.sock:/var/run/docker.sock
             - /var/run/docker/netns/default:/var/run/netns/host
             - ./logs:/var/log
@@ -96,7 +96,7 @@ services:
 networks:
     internal:
         internal: true
-    {% if registrar_network != "default" -%}
-    {{ registrar_network }}:
+    {% if registrar and registrar.network not in ("default", "internal") -%}
+    {{ registrar.network }}:
         external: true
     {%- endif -%}
