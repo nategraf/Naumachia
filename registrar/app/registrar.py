@@ -106,6 +106,13 @@ class EntryNotFoundError(Exception):
         return "No entry for '{0}' was found".format(self.cn)
 
 class Registrar:
+    """Handles certificate and configuration management for a challenge
+
+    Attributes:
+        chal (str): Name of the challenge this instance manages
+        openvpn_dir (str): Path to the directory containing OpenVPN files
+        easyrsa_dir (str): Path to the directory containing EasyRSA tools
+    """
     def __init__(self, chal, openvpn_dir=None, easyrsa_dir=None):
         self.chal = chal
 
@@ -120,20 +127,22 @@ class Registrar:
             self.easyrsa_dir = easyrsa_dir
 
     @property
-    def run_env(self):
+    def easyrsa(self):
+        """Get the path to the EasyRSA executable"""
+        return path.join(self.easyrsa_dir, 'easyrsa')
+
+    @property
+    def easyrsa_pki(self):
+        """Get the path to the EasyRSA pki folder"""
+        return path.join(self.openvpn_dir, 'pki')
+
+    @property
+    def _run_env(self):
         return {
             "OPENVPN": self.openvpn_dir,
             "EASYRSA": self.easyrsa_dir,
             "EASYRSA_PKI": self.easyrsa_pki
         }
-
-    @property
-    def easyrsa(self):
-        return path.join(self.easyrsa_dir, 'easyrsa')
-
-    @property
-    def easyrsa_pki(self):
-        return path.join(self.openvpn_dir, 'pki')
 
     def _run(self, cmdargs, handler=None, **kwargs):
         try:
@@ -143,7 +152,7 @@ class Registrar:
                 stdout=subprocess.PIPE,
                 check=True,
                 cwd=self.openvpn_dir,
-                env=self.run_env,
+                env=self._run_env,
                 **kwargs
             )
         except subprocess.CalledProcessError as e:

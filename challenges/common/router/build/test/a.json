@@ -1,0 +1,7 @@
+{
+    "name": "A",
+    "interfaces": [
+        "172.16.0.1/24"
+    ],
+    "forward": true
+}

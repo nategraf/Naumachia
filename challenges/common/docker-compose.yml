@@ -3,6 +3,6 @@ version: '2.1'
 services:
     dhcpd:
         build: ../common/dhcpd/build
-        image: naumachia/dhcpd
+        image: naumachia/common.dhcpd
         networks:
             default:
