@@ -1,9 +1,7 @@
 # Naumachia
-
 Play some challenges! https://www.naumachiactf.com/
 
 [![Discord](https://img.shields.io/discord/404881131058626570.svg)](https://discord.gg/gH9ZgeT)
-
 
 If you are interested in using or contributing to this project let me (nategraf) know! It will grow based on input from those who care to give it.
 
