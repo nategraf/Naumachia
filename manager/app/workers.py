@@ -217,7 +217,7 @@ class VlanWorker(threading.Thread):
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
-            if connection.alive:
+            if connection.exists() and connection.alive:
                 user = connection.user
                 vpn = connection.vpn
 
