@@ -3,7 +3,7 @@
 .*.swp
 .*.swo
 
-eve/config/*
+/eve/config/*
 **/pki/*
 *.pem
 
@@ -11,17 +11,16 @@ eve/config/*
 __pycache__
 
 # Filter out generated and user sepcific files
-docker-compose.yml
-config.yml
+/docker-compose.yml
+/config.yml
 
 # Filter out non-example challenges
-challenges/*
+/challenges/*
 !challenges/example
 !challenges/common
 
-# Filter out non-example openvpn config
-openvpn/config/*
-!openvpn/config/example
+# Filter out openvpn config
+/openvpn/config/*
 
 # Filter out where we pull down easyrsa
 tools

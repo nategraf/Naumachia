@@ -1,0 +1,36 @@
+version: '2.1'
+
+# This compose file exists to make building easy and to document options needed
+
+services:
+    alpine:
+        build:
+            dockerfile: Dockerfile-base
+            context: .
+        image: naumachia/common.arpon:alpine
+        << : &runtime
+            sysctls:
+                net.ipv4.conf.eth0.arp_ignore: 8
+                net.ipv4.conf.eth0.arp_accept: 0
+            cap_add:
+                - NET_ADMIN
+                - NET_RAW
+            volumes:
+                - arpon:/etc/arpon
+
+    python:
+        build:
+            dockerfile: Dockerfile-python
+            context: .
+        image: naumachia/common.arpon:python
+        << : *runtime
+
+    bind:
+        build:
+            dockerfile: Dockerfile-bind
+            context: .
+        image: naumachia/common.arpon:bind
+        << : *runtime
+
+volumes:
+    arpon:

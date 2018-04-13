@@ -1,0 +1,86 @@
+version: '2.1'
+
+services:
+    alice:
+        << : &shared
+            image: naumachia/common.router
+            sysctls:
+                net.ipv4.ip_forward: 1
+            volumes:
+                - route:/app/routes
+            environment:
+                ROUTE_SHARE: /app/routes
+                LOG_LEVEL: debug
+            cap_add:
+                - NET_ADMIN
+            dns: 127.0.0.40
+        build: ./build
+        hostname: alice
+        networks:
+            alpha:
+
+    bob:
+        << : *shared
+        hostname: bob
+        networks:
+            alpha:
+            beta:
+
+    catherine:
+        << : *shared
+        hostname: catherine
+        networks:
+            alpha:
+            beta:
+            delta:
+        sysctls:
+            net.ipv4.ip_forward: 0
+
+    dave:
+        << : *shared
+        hostname: dave
+        networks:
+            beta:
+            eta:
+
+    eddy:
+        << : *shared
+        hostname: eddy
+        networks:
+            delta:
+            eta:
+
+    frank:
+        << : *shared
+        hostname: frank
+        networks:
+            delta:
+
+    georgia:
+        << : *shared
+        hostname: georgia
+        networks:
+            gamma:
+            delta:
+        sysctls:
+            net.ipv4.ip_forward: 0
+
+    hannah:
+        << : *shared
+        hostname: hannah
+        networks:
+            gamma:
+
+volumes:
+    route:
+
+networks:
+    alpha:
+        &alpha
+        internal: true
+        ipam:
+            driver: mini
+    beta: *alpha
+    gamma: *alpha
+    delta: *alpha
+    eta: *alpha
