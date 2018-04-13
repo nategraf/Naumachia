@@ -39,20 +39,19 @@ services:
     {% endfor -%}
     {% if registrar -%}
     registrar:
-        build:
-            context: ./registrar/build
+        build: ./registrar
         image: naumachia/registrar
         volumes:
-            - ./openvpn/config/:/var/config
-            - ./registrar/app:/var/app:ro
+            - ./openvpn/config/:/var/openvpn
+            - ./registrar/app:/app:ro
+            - ./logs/registrar:/var/log/gunicorn
         environment:
-            - OPENVPN_BASE=/var/config
+            - OPENVPN_BASE=/var/openvpn
         networks:
             internal:
             {{ registrar.network }}:
         ports:
             - "{{ registrar.port }}:3960"
-        command: [python, /var/app/server.py]
         restart: unless-stopped
 
     {% endif -%}
