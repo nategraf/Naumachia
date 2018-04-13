@@ -28,8 +28,19 @@ class Cmd:
                 **kwargs
             )
         except subprocess.CalledProcessError as e:
-            logging.error("%s failed with exit code %d\nCommand: %s", self.__class__.__name__, e.returncode, " ".join(self.args))
-            logging.error(e.output.decode('utf-8'))
+            if e.output:
+                logging.error("%s failed with exit code %d\nCommand: %s\n%s",
+                    self.__class__.__name__,
+                    e.returncode,
+                    " ".join(self.args),
+                    e.output.decode('utf-8')
+                )
+            else:
+                logging.error("%s failed with exit code %d\nCommand: %s",
+                    self.__class__.__name__,
+                    e.returncode,
+                    " ".join(self.args)
+                )
             raise
 
 class IpFlushCmd(Cmd):

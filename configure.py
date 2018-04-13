@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from os import path, makedirs, chmod
 import io
 import jinja2
 import sys
@@ -8,19 +9,25 @@ import argparse
 import subprocess
 import requests
 import tarfile
-from os import path, makedirs, chmod
+import logging
 
-global_defaults = {
-    'DEBUG': False,
+logger = logging.getLogger(__name__)
+
+wildcard = '*'
+defaults = {
+    'eve': False,
     'domain': None,
-    'challenges': {},
-    'registrar': True,
-    'registrar_port': 3960,
-    'registrar_network': 'default'
-}
-
-challenge_defaults = {
-    'port': 1194
+    'challenges_directory': './challenges',
+    'challenges': {
+        '*': {
+            'port': 1194,
+            'files': []
+        }
+    },
+    'registrar': {
+        'port': 3960,
+        'network': 'default'
+    }
 }
 
 EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.3/EasyRSA-3.0.3.tgz'
@@ -37,28 +44,42 @@ def install_easyrsa():
         tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
         tarball.extractall(path=install_dir)
 
-    print("Installed easyrsa to '{}' from '{}'".format(install_dir, EASYRSA_URL))
+    logger.info("Installed easyrsa to '{}' from '{}'".format(install_dir, EASYRSA_URL))
+
+def apply_defaults(config, defaults):
+    # Expand the wildcard
+    # Wildcard only makes sense when the value is a dict
+    if wildcard in defaults:
+        default = defaults[wildcard]
+        defaults.update({k: default for k in config if k not in defaults})
+        defaults.pop(wildcard)
+
+    for key, default in defaults.items():
+        # Handle the case where the key is not in config
+        if key not in config:
+            config[key] = default
+
+        # Recurisly apply defaults to found dicts if the default is a dict
+        elif isinstance(default, dict) and isinstance(config[key], dict):
+            apply_defaults(config[key], default)
 
 def read_config(filename):
     with open(filename, 'r') as config_file:
-        settings = yaml.load(config_file)
+        config = yaml.load(config_file)
 
-    for key, default in global_defaults.items():
-        if key not in settings:
-            settings[key] = default
+    logger.debug("Read from file: %s", config)
 
-    for chal_name, chal_settings in settings['challenges'].items():
-        for key, default in challenge_defaults.items():
-            if key not in chal_settings:
-                chal_settings[key] = default
+    apply_defaults(config, defaults)
+    for chal_name, chal_settings in config['challenges'].items():
+        if 'commonname' not in chal_settings:
+            if config['domain']:
+                chal_settings['commonname'] = '.'.join((chal_name, config['domain']))
+            else:
+                chal_settings['commonname'] = chal_name
 
-            if 'commonname' not in chal_settings:
-                if settings['domain']:
-                    chal_settings['commonname'] = '.'.join((chal_name, settings['domain']))
-                else:
-                    chal_settings['commonname'] = chal_name
+    logger.debug("Modified: %s", config)
 
-    return settings
+    return config
 
 def parse_args():
     dir = path.dirname(__file__)
@@ -67,6 +88,7 @@ def parse_args():
             description='Parse the Naumachia config file and set up the environment',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument('--verbosity', '-v', metavar="LEVEL", default="info", choices=('critical', 'error', 'warning', 'info', 'debug'), help="logging level to use")
     parser.add_argument('--config', metavar="PATH", default=path.join(dir, 'config.yml'), help='path to Naumachia config file')
     parser.add_argument('--templates', metavar="PATH", default=path.join(dir, 'templates'), help='path to the configuration templates')
     parser.add_argument('--compose', metavar="PATH", default=path.join(dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
@@ -77,28 +99,30 @@ def parse_args():
 
 def init_pki(easyrsa, directory, cn):
     easyrsa = path.abspath(easyrsa)
+    debug = logger.isEnabledFor(logging.DEBUG)
     common_args = {
         'check': True,
         'cwd': directory,
-        'stdout': subprocess.PIPE,
-        'stderr': subprocess.PIPE,
+        'stdout': subprocess.PIPE if not debug else None,
+        'stderr': subprocess.PIPE if not debug else None,
         'universal_newlines': True
     }
 
     try:
-        print("Initializing public key infrastructure (PKI)")
+        logger.info("Initializing public key infrastructure (PKI)")
         subprocess.run([easyrsa, 'init-pki'], **common_args)
-        print("Building certificiate authority (CA)")
+        logger.info("Building certificiate authority (CA)")
         subprocess.run([easyrsa, 'build-ca', 'nopass'], input="{}.{}\n".format('ca', cn), **common_args)
-        print("Generating Diffie-Hellman (DH) parameters")
+        logger.info("Generating Diffie-Hellman (DH) parameters")
         subprocess.run([easyrsa, 'gen-dh'], **common_args)
-        print("Building server certificiate")
+        logger.info("Building server certificiate")
         subprocess.run([easyrsa, 'build-server-full', cn, 'nopass'], **common_args)
-        print("Generating certificate revocation list (CRL)")
+        logger.info("Generating certificate revocation list (CRL)")
         subprocess.run([easyrsa, 'gen-crl'], **common_args)
     except subprocess.CalledProcessError as e:
-        print("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
-        print(e.output)
+        logger.error("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
+        if e.output:
+            logger.error(e.output)
 
 def render(tpl_path, dst_path, context):
     dirname, filename = path.split(tpl_path)
@@ -109,7 +133,7 @@ def render(tpl_path, dst_path, context):
     with open(dst_path, 'w') as f:
         f.write(result)
 
-    print("Rendered {} from {} ".format(dst_path, tpl_path))
+    logger.info("Rendered {} from {} ".format(dst_path, tpl_path))
 
     return result
 
@@ -117,8 +141,16 @@ def render(tpl_path, dst_path, context):
 if __name__ == "__main__":
     args = parse_args()
 
-    print("Using settings from {}".format(args.config))
-    settings = read_config(args.config)
+    # Configure logging
+    levelnum = getattr(logging, args.verbosity.upper(), None)
+    if not isinstance(levelnum, int):
+        raise ValueError('Invalid log level: {}'.format(args.verbosity))
+
+    logging.basicConfig(level=levelnum, format="[%(levelname)s] %(message)s")
+
+    # Load the config from disk
+    logger.info("Using config from {}".format(args.config))
+    config = read_config(args.config)
 
     # Ensure easyrsa is installed
     if not path.exists(args.easyrsa):
@@ -129,23 +161,23 @@ if __name__ == "__main__":
 
     # Render the docker-compose file
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
-    render(template_path, args.compose, settings)
+    render(template_path, args.compose, config)
 
     # Create and missing openvpn config directories
-    for name, chal in settings['challenges'].items():
+    for name, chal in config['challenges'].items():
         config_dirname = path.join(args.ovpn_configs, name)
-        print("\nConfiguring '{}'".format(name))
+        logger.info("Configuring '{}'".format(name))
 
         if not path.isdir(config_dirname):
             makedirs(config_dirname)
-            print("Created new openvpn config directory {}".format(config_dirname))
+            logger.info("Created new openvpn config directory {}".format(config_dirname))
 
             init_pki(args.easyrsa, config_dirname, chal['commonname'])
         else:
-            print("Using existing openvpn config directory {}".format(config_dirname))
+            logger.info("Using existing openvpn config directory {}".format(config_dirname))
 
         context = {'chal': chal}
-        context.update(settings)
+        context.update(config)
 
         render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
         render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)

@@ -5,16 +5,15 @@ import os
 import registrar
 import json
 
-script_dir = path.dirname(__file__)
-
 app = Flask(__name__)
 
-port                = int(environ.get("REGISTRAR_PORT", 3960))
-app.secret_key      = environ.get("REGISTRAR_SECRET", "K2ptdnpfjLnFrA2c")
-#cert_path           = environ.get("CERT_PATH", "/certs/localhost.cert")
-#key_path            = environ.get("KEY_PATH", "/certs/localhost.key")
+app.secret_key = environ.get("REGISTRAR_SECRET", os.urandom(32))
+REGISTRAR_PORT = int(environ.get("REGISTRAR_PORT", 3960))
 
+# Initialize the dict of registrars
 registrars = {}
+for dirname in os.listdir(registrar.OPENVPN_BASE):
+    registrars[dirname] = registrar.Registrar(dirname)
 
 @app.route('/<chal>/<action>')
 def register(chal, action):
@@ -44,7 +43,4 @@ def register(chal, action):
     return json.dumps(result, cls=registrar.RegistrarEncoder)
 
 if __name__ == '__main__':
-    for dirname in os.listdir(registrar.OPENVPN_BASE):
-        registrars[dirname] = registrar.Registrar(dirname)
-
-    app.run(debug=True, host='0.0.0.0', port=port)# ssl_context=(cert_path, key_path))
+    app.run(debug=True, host='0.0.0.0', port=port)

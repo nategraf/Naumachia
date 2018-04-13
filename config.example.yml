@@ -1,0 +1,33 @@
+# [default: false] Indicates whether to deploy a test attacker container called eve
+eve: false
+
+# [default: None] A domain name to append to challenge names to create their default common name
+domain: mydomain.net
+
+# [default: './challenges'] The directory which contains your challenges
+# If the the path is relative, it will be relative to the generated docker-compose.yml file
+challenges_directory: ./challenges
+
+# [optional] Configuration for the registrar server. Set to `null` or `false` to disable
+registrar:
+    # [default: 3960] The exposed port for the registrar server
+    port: 3960
+    # [default: "default"] The docker network the registrar is connected to.
+    # The network will be unmanaged by compose except for the default network
+    network: default
+
+# [required] Configurations for each challenge
+challenges:
+    # [required] An indiviual challenge config. The key is the challenge name
+    # This should be a valid unix filename and preferably short
+    example:
+        # [default: 1194] The exposed external port for this challenges OpenVPN server
+        port: 2000
+        # [required] The compose files to which define this challenge
+        # Paths should be relative to the challenges directory
+        files:
+            - example/docker-compose.yml
+            - common/docker-compose.yml
+        # [default: {domain}.{challenge name}] The commonname used for the OpenVPN's certificates
+        # This should be the domain name or ip that directs to this challenge
+        commonname: foo.bar.mydomain.net
