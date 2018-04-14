@@ -1,0 +1,14 @@
+
+version: '3.6'
+
+services:
+    redis:
+        image: redis:alpine
+        volumes:
+            - ./redis/config:/usr/local/etc/redis
+            - ./logs:/data/log
+        command: [redis-server, /usr/local/etc/redis/redis.conf]
+
+networks:
+    default:
+        internal: true
