@@ -1,59 +1,88 @@
 import fcntl
-import operator
 import socket
 import struct
 import warnings
+import subprocess
 
 class Ip:
-    _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     # both in packed bytes form
     def __init__(self, ip):
-        self.ip = ip
+        self._str = None
+        self._int = None
+        self._bytes = None
 
-    def _bitop(self, other, op):
-        selfint, otherint = (struct.unpack('!I', socket.inet_aton(o.ip))[0] for o in (self, other))
-        resint = op(selfint, otherint)
-        return self.__class__(socket.inet_ntoa(struct.pack('!I', resint)))
+        if isinstance(ip, str):
+            self._str = ip
+        elif isinstance(ip, int):
+            self._int = ip
+        elif isinstance(ip, bytes):
+            if len(ip) == 4:
+                self._bytes = ip
+            else:
+                self._str = ip.decode('utf-8')
 
+    # Operations
     def __and__(self, other):
-        return self._bitop(other, operator.__and__)
+        return self.__class__(int(self) & int(other))
 
     def __or__(self, other):
-        return self._bitop(other, operator.__or__)
+        return self.__class__(int(self) | int(other))
 
     def __xor__(self, other):
-        return self._bitop(other, operator.__xor__)
+        return self.__class__(int(self) ^ int(other))
 
     def __invert__(self):
-        return self._bitop(self.__class__('255.255.255.255'), operator.__xor__)
+        return self.__class__(int(self) ^ 0xFFFFFFFF)
 
+    # Conversions
     def __str__(self):
-        return self.ip
+        if self._str is None:
+            self._str = socket.inet_ntoa(bytes(self))
+        return self._str
+
+    def __int__(self):
+        return struct.unpack('!I', bytes(self))[0]
+
+    def __bytes__(self):
+        if self._bytes is None:
+            if self._str is not None:
+                self._bytes = socket.inet_aton(self._str)
+            elif self._int is not None:
+                self._bytes = struct.pack('!I', self._bytes)
+        return self._bytes
 
     def __repr__(self):
         return '<{0}.{1} {2!s}>'.format(__name__, self.__class__.__name__, self)
 
-    @classmethod
-    def _ifctl(cls, ifname, code):
-        if isinstance(ifname, str):
-            ifname = ifname.encode('utf-8')
+    def slash(self):
+        x, i = int(self), 0
+        while x & 0x1 == 0:
+            x >>= 1
+            i += 1
+        return i
 
-        ip = socket.inet_ntoa(fcntl.ioctl(
-            cls._socket.fileno(),
-            code,
-            struct.pack('256s', ifname[:15])
-        )[20:24])
+_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        return cls(ip)
+def _ifctl(ifname, code):
+    if isinstance(ifname, str):
+        ifname = ifname.encode('utf-8')
 
-    @classmethod
-    def ifaddr(cls, ifname):
-        return cls._ifctl(ifname, 0x8915) # SIOCGIFADDR
+    ip = fcntl.ioctl(
+        _socket.fileno(),
+        code,
+        struct.pack('256s', ifname[:15])
+    )[20:24]
 
-    @classmethod
-    def ifmask(cls, ifname):
-        return cls._ifctl(ifname, 0x891b)  # SIOCGIFNETMASK
+    return Ip(ip)
+
+def ifaddr(ifname):
+    return Ip._ifctl(ifname, 0x8915) # SIOCGIFADDR
+
+def ifmask(ifname):
+    return Ip._ifctl(ifname, 0x891b)  # SIOCGIFNETMASK
+
+def cidr(ip, mask):
+    return "{!s}/{:d}".format(ip, mask.slash())
 
 class OpenVpnError(Exception):
     def __init__(self, instance, msg):
@@ -87,7 +116,7 @@ class OpenVpn:
             self._process.poll()
             code = self._process.returncode
             if code is not None and code != 0:
-                raise OpenVpnError(self, "OpenVPN tunnel exited with error code: {:d}")
+                raise OpenVpnError(self, "`openvpn {:s}` exited with error code: {:d}".format(" ".join(self.args()), code))
 
     def running(self):
         return self._process is not None and self._process.poll() is None
