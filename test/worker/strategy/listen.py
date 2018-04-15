@@ -1,11 +1,11 @@
-from strategy import Strategy, FlagFound
+import strategy
 import scapy.all as scapy
 import logging
 import re
 
 logger = logging.getLogger(__name__)
 
-class PassiveStrategy(Strategy):
+class PassiveStrategy(strategy.Strategy):
     needsip = False
     challenge = 'listen'
 
@@ -21,9 +21,11 @@ class PassiveStrategy(Strategy):
 
                 m = re.search(runner.flagpattern, load)
                 if m:
-                    raise FlagFound(m.group(0))
+                    raise strategy.FlagFound(m.group(0))
 
         try:
             scapy.sniff(iface=runner.iface, filter='udp', prn=examine)
-        except FlagFound as exp:
+        except strategy.FlagFound as exp:
             return exp.flag
+        else:
+            raise strategy.Abort("Sniffer exited without finding flag")

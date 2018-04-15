@@ -1,8 +1,12 @@
 import fcntl
+import os
 import socket
 import struct
 import warnings
 import subprocess
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Ip:
     # both in packed bytes form
@@ -121,7 +125,15 @@ class OpenVpn:
     def running(self):
         return self._process is not None and self._process.poll() is None
 
+    @staticmethod
+    def maketun():
+        os.makedirs('/dev/net', exist_ok=True)
+        subprocess.run(['mknod', '/dev/net/tun', 'c', '10', '200'], check=True)
+
     def connect(self):
+        if not os.path.exists('/dev/net/tun'):
+            self.maketun()
+
         if not self.running():
             self.initialized = False
             self._process = subprocess.Popen(
@@ -135,10 +147,12 @@ class OpenVpn:
     def disconnect(self):
         if self.running():
             self._process.terminate()
+            os.waitpid(self._process.pid, 0)
 
     def waitforinit(self):
         if not self.initialized:
             for line in self._process.stdout:
+                logger.debug("openvpn: %s", line.decode('utf-8').strip())
                 if self.initmsg in line:
                     self.initialized = True
                     break

@@ -1,0 +1,4 @@
+requests==2.18.4
+redis==2.10.6
+trol==0.2.2
+PyYAML==3.12

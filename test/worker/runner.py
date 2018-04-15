@@ -14,7 +14,7 @@ class Runner:
     def execute(self, strategy):
         logger.info("Starting: Opening VPN connection with config from %s", self.vpnconfig)
         with net.OpenVpn(config=self.vpnconfig) as ovpn:
-            logger.info("Waiting for tunnel initaliztion")
+            logger.info("Waiting for tunnel initalization")
             ovpn.waitforinit()
 
             logger.info("Bringing up %s", self.iface)

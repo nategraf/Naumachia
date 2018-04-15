@@ -21,3 +21,6 @@ class Strategy(abc.ABC):
 class FlagFound(Exception):
     def __init__(self, flag):
         self.flag = flag
+
+class Abort(Exception):
+    pass

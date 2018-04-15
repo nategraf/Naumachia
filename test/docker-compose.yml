@@ -1,4 +1,3 @@
-
 version: '3.6'
 
 services:
@@ -9,6 +8,22 @@ services:
             - ./logs:/data/log
         command: [redis-server, /usr/local/etc/redis/redis.conf]
 
-networks:
-    default:
-        internal: true
+    worker:
+        build: ./worker
+        image: naumachia/test.worker
+        cap_add:
+            - NET_ADMIN
+        environment:
+            REDIS_ADDR: redis
+            LOG_LEVEL: info
+        volumes:
+            - ./worker:/app:ro
+
+    loader:
+        build: ./loader
+        image: naumachia/test.loader
+        environment:
+            REDIS_ADDR: redis
+            REGISTRAR_URL: http://192.168.254.220:3960 # Your local IP here
+        volumes:
+            - ./loader:/app:ro
