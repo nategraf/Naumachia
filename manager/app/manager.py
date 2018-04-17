@@ -7,9 +7,14 @@ from workers import Listener, ClusterWorker, VlanWorker, VethWorker
 import logging
 import os
 
+listeners=[]
+
 def stop_handler(signum, frame):
-    #TODO: Implement this
     logging.info("Shutting down...")
+    for listener in listeners:
+        listener.stop()
+
+    system.exit(0)
 
 def get_env():
     env = {}
@@ -44,13 +49,11 @@ if __name__ == "__main__":
 
     # Set up signal handler
     signal(SIGTERM, stop_handler)
-    signal(SIGINT, stop_handler)
 
     # Connect to DB
     DB.redis = Redis(host=env['REDIS_HOSTNAME'], db=env['REDIS_DB'], port=env['REDIS_PORT'], password=env['REDIS_PASSWORD'])
 
     # Start listeners
-    listeners=[]
     keyspace_pattern = "__keyspace@{:d}__:{:s}"
 
     listeners.append(Listener(keyspace_pattern.format(env['REDIS_DB'], 'Connection:*:alive'), ClusterWorker))

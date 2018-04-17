@@ -1,0 +1,29 @@
+version: '3.6'
+
+services:
+    redis:
+        image: redis:alpine
+        volumes:
+            - ./redis/config:/usr/local/etc/redis
+            - ./logs:/data/log
+        command: [redis-server, /usr/local/etc/redis/redis.conf]
+
+    worker:
+        build: ./worker
+        image: naumachia/test.worker
+        cap_add:
+            - NET_ADMIN
+        environment:
+            REDIS_ADDR: redis
+            LOG_LEVEL: info
+        volumes:
+            - ./worker:/app:ro
+
+    loader:
+        build: ./loader
+        image: naumachia/test.loader
+        environment:
+            REDIS_ADDR: redis
+            REGISTRAR_URL: http://naumachia.local:3960
+        volumes:
+            - ./loader:/app:ro
