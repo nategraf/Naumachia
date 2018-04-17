@@ -33,10 +33,8 @@ def create_user(vpn, env):
         if vlan in existing_vlans:
             vlan = None
 
-    # This is currently implemented as a security measure; Never want user data possibly injected into control info
-    # e.g. what if a user called themselves "Vpn:xxxxxxxxxxxx", taht could trigger I listener 
-    # .... well actually it wouldn't, and I can't think of any dangerous examples, so maybe I'll ditch this for readability
-    user_id = base64.b32encode(env['COMMON_NAME'].encode('utf-8')).decode('utf-8').lower().strip('=')
+    # Common name must be formatted as if it were a dns name
+    user_id = env['COMMON_NAME'].lower()
     user = DB.User(user_id)
     user.update(
         vlan = vlan,

@@ -33,3 +33,5 @@ services:
 networks:
     default:
         internal: true
+        ipam:
+            driver: mini
