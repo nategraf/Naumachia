@@ -24,6 +24,6 @@ services:
         image: naumachia/test.loader
         environment:
             REDIS_ADDR: redis
-            REGISTRAR_URL: http://192.168.254.220:3960 # Your local IP here
+            REGISTRAR_URL: http://naumachia.local:3960
         volumes:
             - ./loader:/app:ro
