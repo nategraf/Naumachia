@@ -1,2 +1,5 @@
 listen:
-    certificates: 100
+    certificates: 10
+
+example:
+    certificates: 10
