@@ -57,7 +57,7 @@ class Addr(metaclass=AddrMeta):
     # Conversions
     def __str__(self):
         if self._str is None:
-            self._str = socket.inet_ntoa(bytes(self))
+            self._str = self.bytes_to_str(bytes(self))
         return self._str
 
     def __int__(self):
@@ -66,7 +66,7 @@ class Addr(metaclass=AddrMeta):
     def __bytes__(self):
         if self._bytes is None:
             if self._str is not None:
-                self._bytes = socket.inet_aton(self._str)
+                self._bytes = self.str_to_bytes(self._str)
             elif self._int is not None:
                 self._bytes = self._int.to_bytes(self.bytelen, byteorder='big')
         return self._bytes
@@ -77,6 +77,14 @@ class Addr(metaclass=AddrMeta):
 class Ip(Addr):
     bytelen = 4
 
+    @staticmethod
+    def bytes_to_str(b):
+        return socket.inet_ntoa(b)
+
+    @staticmethod
+    def str_to_bytes(s):
+        return socket.inet_aton(s)
+
     def slash(self):
         x, i = int(self), 0
         while x & 0x1 == 0:
@@ -84,8 +92,16 @@ class Ip(Addr):
             i += 1
         return 32 - i
 
-class Mac:
+class Mac(Addr):
     bytelen = 6
+
+    @staticmethod
+    def bytes_to_str(b):
+        return ':'.join('%02x' % byte for byte in b)
+
+    @staticmethod
+    def str_to_bytes(s):
+        return bytes.fromhex(s.replace(':', ''))
 
 def _ifctl(ifname, code):
     if isinstance(ifname, str):
