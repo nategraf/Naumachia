@@ -1,5 +1,5 @@
-import strategy
 import scapy.all as scapy
+import strategy
 import logging
 import re
 
@@ -23,9 +23,5 @@ class PassiveStrategy(strategy.Strategy):
                 if m:
                     raise strategy.FlagFound(m.group(0))
 
-        try:
-            scapy.sniff(iface=runner.iface, filter='udp', prn=examine)
-        except strategy.FlagFound as exp:
-            return exp.flag
-        else:
-            raise strategy.Abort("Sniffer exited without finding flag")
+        scapy.sniff(iface=runner.iface, filter='udp', prn=examine)
+        raise strategy.Abort("Sniffer exited without finding flag")

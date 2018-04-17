@@ -2,6 +2,7 @@ from runner import Runner
 from db import Db
 import signal
 import strategy.listen
+import strategy.example
 import logging
 import os
 import random
@@ -35,7 +36,12 @@ def load_config(challenge):
     return path
 
 def load_strategy(challenge):
-    return strategy.listen.PassiveStrategy()
+    if challenge == 'listen':
+        return strategy.listen.PassiveStrategy()
+    elif challenge == 'example':
+        return strategy.example.ArpPoisonStrategy()
+    else:
+        raise ValueError("Cannot load strategy for unknown challenge {:s}".format(challenge))
 
 # Will raise SystemExit to allow cleanup code to run
 def stop_handler(signum, frame):
@@ -47,21 +53,20 @@ if __name__ == "__main__":
     Db.redis = redis.Redis(host=REDIS_ADDR, port=REDIS_PORT)
     signal.signal(signal.SIGTERM, stop_handler)
 
-    challenge = 'listen'
-    chaldb = Db.Challenge(challenge)
-
-    # Wait for the loader to prepare the challenge
-    while not (chaldb.exists() and chaldb.ready):
-        logger.info("Waiting for configurations to be ready for %s", challenge)
-        chaldb.invalidate()
-        time.sleep(3)
-
     while True:
-        # Get the config and strategy
-        config = load_config(challenge)
-        strat = load_strategy(challenge)
+        chaldb = Db.challenges.srandmember()
 
-        logging.info("Attempting to solve %s with %s strategy and %s config", challenge, strat.name, os.path.basename(config))
+        # Wait for the loader to prepare the challenge
+        while not (chaldb.exists() and chaldb.ready):
+            logger.info("Waiting for configurations to be ready for %s", chaldb.id)
+            chaldb.invalidate()
+            time.sleep(3)
+
+        # Get the config and strategy
+        config = load_config(chaldb.id)
+        strat = load_strategy(chaldb.id)
+
+        logging.info("Attempting to solve %s with %s strategy and %s config", chaldb.id, strat.name, os.path.basename(config))
         runner = Runner(config)
         runner.execute(strat)
 
