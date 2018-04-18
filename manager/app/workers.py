@@ -94,7 +94,7 @@ class ClusterWorker(threading.Thread):
 
             # Set status before executing the command because if is fails we should assume it's down still
             cluster.status = 'down'
-            vpn.links[user.vlan] = 'dead'
+            vpn.links[user.vlan] = 'down'
             ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
         except RedisKeyError:
             logging.info("No action for user %s with no registered cluster", user.id)
