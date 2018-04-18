@@ -1,7 +1,7 @@
-from subprocess import CalledProcessError
 from trol import RedisKeyError
 from naumdb import DB, Address
 from commands import vlan_if_name, IpFlushCmd, LinkUpCmd, VlanCmd, BrctlCmd, ComposeCmd
+import subprocess
 import os
 import threading
 import docker
@@ -67,7 +67,7 @@ class ClusterWorker(threading.Thread):
 
             try:
                 ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
-            except CalledProcessError:
+            except subprocess.CalledProcessError:
                 # Try brining the cluster down first in cae Compose left it in a limbo state
                 ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
                 ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
@@ -94,7 +94,7 @@ class ClusterWorker(threading.Thread):
 
             # Set status before executing the command because if is fails we should assume it's down still
             cluster.status = 'down'
-            vpn.links[user.vlan] = 'down'
+            vpn.links[user.vlan] = 'up'
             ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
         except RedisKeyError:
             logging.info("No action for user %s with no registered cluster", user.id)
@@ -201,7 +201,7 @@ class VlanWorker(threading.Thread):
         try:
             VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
             logging.info("New vlan link on vpn %s for vlan %d", vpn.id, user.vlan)
-        except CalledProcessError as e:
+        except subprocess.CalledProcessError as e:
             if e.returncode != 2:
                 raise
 
