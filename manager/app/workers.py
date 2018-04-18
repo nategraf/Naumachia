@@ -55,7 +55,7 @@ class ClusterWorker(threading.Thread):
         self.channel = channel
         self.action = action
 
-    def ensure_cluster_up(self, user, vpn, cluster, connection, retry=True):
+    def ensure_cluster_up(self, user, vpn, cluster, connection):
         exists = cluster.exists() 
         if exists and cluster.status == 'up':
             logging.info("New connection %s to exsiting cluster %s", connection.id, cluster.id)
@@ -68,15 +68,12 @@ class ClusterWorker(threading.Thread):
             try:
                 ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
             except CalledProcessError:
-                if retry:
-                    # Try brining the cluster down first in cae Compose left it in a limbo state
-                    self.ensure_cluster_down(user, vpn, cluster, connection)
-                    self.ensure_cluster_up(user, vpn, cluster, connection, retry=False)
-                else:
-                    raise
-            else:
-                cluster.status = 'up'
-                self.bridge_link_if_ready(user, vpn, cluster)
+                # Try brining the cluster down first in cae Compose left it in a limbo state
+                ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
+                ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
+
+            cluster.status = 'up'
+            self.bridge_link_if_ready(user, vpn, cluster)
 
     def ensure_cluster_stopped(self, user, vpn, cluster):
         try:
