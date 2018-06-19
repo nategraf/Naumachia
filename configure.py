@@ -30,8 +30,8 @@ defaults = {
     }
 }
 
-EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.3/EasyRSA-3.0.3.tgz'
-EASYRSA_DIR='EasyRSA-3.0.3'
+EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.4/EasyRSA-3.0.4.tgz'
+EASYRSA_DIR='EasyRSA-3.0.4'
 EASYRSA_DEFAULT=path.abspath(path.join(path.dirname(__file__), 'tools', EASYRSA_DIR, 'easyrsa'))
 
 def install_easyrsa():
