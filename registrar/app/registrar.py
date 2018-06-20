@@ -18,7 +18,7 @@ script_dir = path.dirname(__file__)
 getclient = path.abspath(path.join(script_dir, "getclient"))
 
 OPENVPN_BASE = environ.get("OPENVPN_BASE", path.abspath(path.join(script_dir, '../../openvpn/config')))
-EASYRSA = environ.get("EASYRSA", path.abspath(path.join(script_dir, '../../tools/EasyRSA-3.0.3')))
+EASYRSA = environ.get("EASYRSA", path.abspath(path.join(script_dir, '../../tools/EasyRSA-3.0.4')))
 
 class CertificateListing:
     """Representaion of the status of a certificate
