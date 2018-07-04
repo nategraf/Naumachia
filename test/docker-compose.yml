@@ -18,6 +18,7 @@ services:
             LOG_LEVEL: info
         volumes:
             - ./worker:/app:ro
+        restart: on-failure
 
     loader:
         build: ./loader

@@ -3,18 +3,27 @@ import logging
 import net
 import os
 import subprocess
+import threading
 
 logger = logging.getLogger(__name__)
 
 class Runner:
-    def __init__(self, vpnconfig, flagpattern=r'flag{[^}]*}', iface='tap0'):
+    def __init__(self, vpnconfig, flagpattern=r'flag{[^}]*}', iface='tap0', timeout=300):
         self.vpnconfig = vpnconfig
         self.iface = iface
         self.flagpattern = flagpattern
+        self.timeout = timeout
 
     def execute(self, strat):
         logger.info("Starting: Opening VPN connection with config from %s", self.vpnconfig)
         with net.OpenVpn(config=self.vpnconfig) as ovpn:
+            # Set a timeout for if we never connect
+            def abort():
+                logger.error("Run timed out after %d seconds. Closing VPN connection...", self.timeout)
+                ovpn.disconnect()
+            timer = threading.Timer(self.timeout, abort)
+            timer.start()
+
             logger.info("Waiting for tunnel initalization")
             ovpn.waitforinit()
 
@@ -29,6 +38,8 @@ class Runner:
                 flag = strat.execute(self)
             except strategy.FlagFound as exp:
                 flag = exp.flag
+
+            timer.cancel()
             
         if flag is not None:
             logger.info("Success! %s", flag)
