@@ -1,7 +1,0 @@
-{
-    "name": "H",
-    "interfaces": [
-        "192.168.0.2/28"
-    ],
-    "forward": true
-}

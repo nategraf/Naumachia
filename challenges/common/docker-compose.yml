@@ -1,8 +1,0 @@
-version: '2.1'
-
-services:
-    dhcpd:
-        build: ../common/dhcpd/build
-        image: naumachia/common.dhcpd
-        networks:
-            default:

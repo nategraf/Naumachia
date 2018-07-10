@@ -14,10 +14,8 @@ __pycache__
 /docker-compose.yml
 /config.yml
 
-# Filter out non-example challenges
-/challenges/*
-!challenges/example
-!challenges/common
+# Filter out challenges
+/challenges
 
 # Filter out openvpn config
 /openvpn/config/*
