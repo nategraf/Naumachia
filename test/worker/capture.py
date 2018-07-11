@@ -9,12 +9,13 @@ import time
 scapy.conf.verb = 0
 
 class Sniffer(threading.Thread):
-    def __init__(self, iface=None, processor=None, store=False, quantum=0.25):
+    def __init__(self, iface=None, processor=None, store=False, filter=None, quantum=0.25):
         threading.Thread.__init__(self)
         self.iface = iface
         self.processor = processor
         self.store = store
         self.quantum = quantum
+        self.filter = filter
 
         self.modules = []
         self.packets = []
@@ -39,7 +40,7 @@ class Sniffer(threading.Thread):
 
     def run(self):
         try:
-            self._l2socket = scapy.conf.L2listen(iface=self.iface)
+            self._l2socket = scapy.conf.L2listen(iface=self.iface, filter=self.filter)
 
             while not self._stopevent.is_set():
                 with self._moduleslock:
@@ -60,13 +61,26 @@ class Sniffer(threading.Thread):
         self._stopevent.set()
 
 class Module:
+    """
+    Module is the base for a packet sniffer module.
+    Implementaions of Module provide a discrete functionality towards complex packet analysis and manipulation.
+    """
     def start(self, sniffer):
+        """
+        Start will be called when the sniffer starts
+        """
         pass
 
     def process(self, pkt):
+        """
+        Process will be called for every packet recieved by the sniffer
+        """
         pass
 
     def stop(self):
+        """
+        Stop will be called when the sniffer stops
+        """
         pass
 
 class ArpCacheModule(Module):
