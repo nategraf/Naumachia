@@ -36,7 +36,7 @@ class ArpPoisonStrategy(strategy.Strategy):
                     self.flag = self.question
                     self.sniffer.stop()
 
-    def execute(self, runner):
+    def execute(self, iface, flagpattern, canceltoken=None):
         sniffer = capture.Sniffer(iface=runner.iface)
         cachemod = capture.ArpCacheModule()
         analyser = self.AnalysisModule(runner.flagpattern)
@@ -47,11 +47,13 @@ class ArpPoisonStrategy(strategy.Strategy):
             capture.ForwarderModule(cachemod.cache),
         )
 
+        if canceltoken is not None:
+            canceltoken.fork(oncancel=sniffer.stop)
+
         try:
             sniffer.start()
             sniffer.join()
         finally:
             sniffer.stop()
-            sniffer.join()
 
         return analyser.flag

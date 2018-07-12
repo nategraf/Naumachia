@@ -1,4 +1,5 @@
 import scapy.all as scapy
+import capture
 import strategy
 import logging
 import re
@@ -9,8 +10,16 @@ class PassiveStrategy(strategy.Strategy):
     needsip = False
     challenge = 'listen'
 
-    def execute(self, runner):
-        def examine(pkt):
+    class AnalysisModule(capture.Module):
+        def __init__(self, flagpattern):
+            self.flagpattern = flagpattern
+            self.flag = None
+            self.sniffer = None
+
+        def start(self, sniffer):
+            self.sniffer = sniffer
+
+        def process(self, pkt):
             logger.debug(pkt.sprintf("{IP:%IP.src%: }{Raw:%Raw.load%}"))
 
             if pkt.haslayer(scapy.Raw):
@@ -19,9 +28,23 @@ class PassiveStrategy(strategy.Strategy):
                 except DecodeError:
                     return
 
-                m = re.search(runner.flagpattern, load)
+                m = re.search(self.flagpattern, load)
                 if m:
-                    raise strategy.FlagFound(m.group(0))
+                    self.flag = m.group(0)
+                    self.sniffer.stop()
 
-        scapy.sniff(iface=runner.iface, filter='udp', prn=examine)
-        raise strategy.Abort("Sniffer exited without finding flag")
+    def execute(self, iface, flagpattern, canceltoken=None):
+        sniffer = capture.Sniffer(iface=iface, filter='udp')
+        analyser = self.AnalysisModule(flagpattern)
+        sniffer.register(analyser)
+
+        if canceltoken is not None:
+            canceltoken.fork(oncancel=sniffer.stop)
+
+        try:
+            sniffer.start()
+            sniffer.join()
+        finally:
+            sniffer.stop()
+
+        return analyser.flag

@@ -1,3 +1,4 @@
+from cancelation import CancelationToken
 import strategy
 import logging
 import net
@@ -14,15 +15,16 @@ class Runner:
         self.flagpattern = flagpattern
         self.timeout = timeout
 
-    def execute(self, strat):
+    def execute(self, strat, canceltoken=None):
         logger.info("Starting: Opening VPN connection with config from %s", self.vpnconfig)
         with net.OpenVpn(config=self.vpnconfig) as ovpn:
             # Set a timeout for if we never connect
             def abort():
-                logger.error("Run timed out after %d seconds. Closing VPN connection...", self.timeout)
-                ovpn.disconnect()
-            timer = threading.Timer(self.timeout, abort)
-            timer.start()
+                if ovpn.running():
+                    logger.error("Run timed out after %d seconds. Closing VPN connection...", self.timeout)
+                    ovpn.disconnect()
+
+            canceltoken = CancelationToken(parent=canceltoken, oncancel=abort, timeout=self.timeout)
 
             logger.info("Waiting for tunnel initalization")
             ovpn.waitforinit()
@@ -34,12 +36,7 @@ class Runner:
                 subprocess.run(['dhclient', self.iface], check=True)
 
             logger.info("Running strat %s", strat.name)
-            try:
-                flag = strat.execute(self)
-            except strategy.FlagFound as exp:
-                flag = exp.flag
-
-            timer.cancel()
+            flag = strat.execute(iface=self.iface, flagpattern=self.flagpattern, canceltoken=canceltoken)
             
         if flag is not None:
             logger.info("Success! %s", flag)
