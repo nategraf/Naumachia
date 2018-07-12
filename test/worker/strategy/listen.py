@@ -1,3 +1,4 @@
+# coding: utf-8
 import scapy.all as scapy
 import capture
 import strategy
@@ -7,6 +8,10 @@ import re
 logger = logging.getLogger(__name__)
 
 class PassiveStrategy(strategy.Strategy):
+    """
+    PassiveStrategy solves the 'listen' challenge by opening a sniffer and waiting for
+    a UDP packet matching the expected flag format.
+    """
     needsip = False
     challenge = 'listen'
 

@@ -1,3 +1,4 @@
+# coding: utf-8
 from runner import Runner
 from db import Db
 import signal

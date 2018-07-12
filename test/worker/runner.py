@@ -1,3 +1,4 @@
+# coding: utf-8
 from cancelation import CancelationToken
 import strategy
 import logging
@@ -9,6 +10,8 @@ import threading
 logger = logging.getLogger(__name__)
 
 class Runner:
+    """Runner holds establishes connection to the challenge and runs the given strategy."""
+
     def __init__(self, vpnconfig, flagpattern=r'flag{[^}]*}', iface='tap0', timeout=300):
         self.vpnconfig = vpnconfig
         self.iface = iface

@@ -1,3 +1,4 @@
+# coding: utf-8
 import scapy.all as scapy
 import capture
 import strategy
@@ -7,6 +8,11 @@ import re
 logger = logging.getLogger(__name__)
 
 class ArpPoisonStrategy(strategy.Strategy):
+    """
+    ArpPoisonStrategy solves the 'middle'/'example' challenge challenge through by
+    ARP poisoning the network and performing to perform a MITM attack. It then watches
+    the bidirectional flow of UDP packets until it sees a positive response to the flag.
+    """
     needsip = True
     challenge = 'example'
 

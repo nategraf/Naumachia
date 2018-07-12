@@ -1,3 +1,8 @@
+# coding: utf-8
+"""
+Network address functions and an OpenVPN utility class.
+"""
+
 import fcntl
 import os
 import socket
