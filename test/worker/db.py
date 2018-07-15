@@ -9,7 +9,7 @@ class Db(trol.Database):
 
         certificates = trol.Set(typ=trol.Model)
         strategies = trol.Set(typ=str)
-        ready = trol.Property(typ=bool)
+        ready = trol.Property(typ=bool, alwaysfetch=True)
 
     class Certificate(trol.Model):
         def __init__(self, cn, text=None):

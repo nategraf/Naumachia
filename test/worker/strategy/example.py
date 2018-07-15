@@ -14,7 +14,7 @@ class ArpPoisonStrategy(strategy.Strategy):
     the bidirectional flow of UDP packets until it sees a positive response to the flag.
     """
     needsip = True
-    challenge = 'example'
+    challenges = ['example', 'middle']
 
     class AnalysisModule(capture.Module):
         def __init__(self, flagpattern):
@@ -43,9 +43,9 @@ class ArpPoisonStrategy(strategy.Strategy):
                     self.sniffer.stop()
 
     def execute(self, iface, flagpattern, canceltoken=None):
-        sniffer = capture.Sniffer(iface=runner.iface)
+        sniffer = capture.Sniffer(iface=iface)
         cachemod = capture.ArpCacheModule()
-        analyser = self.AnalysisModule(runner.flagpattern)
+        analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
             cachemod,
             analyser,

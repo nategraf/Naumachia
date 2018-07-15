@@ -27,6 +27,11 @@ if not isinstance(_levelnum, int):
 logging.basicConfig(level=_levelnum, format="[%(levelname)s %(asctime)s] %(message)s", datefmt="%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
+strategies = [
+    strategy.listen.PassiveStrategy(),
+    strategy.example.ArpPoisonStrategy()
+]
+
 def load_config(challenge):
     """Load a random ovpn config for the challenge and save it to a temp file"""
     certdb = Db.Challenge(challenge).certificates.srandmember()
@@ -37,12 +42,17 @@ def load_config(challenge):
     return path
 
 def load_strategy(challenge):
-    if challenge == 'listen':
-        return strategy.listen.PassiveStrategy()
-    elif challenge == 'example':
-        return strategy.example.ArpPoisonStrategy()
+    """Load a random strategy from the list provided in the config or all compatible challenges if that list is empty"""
+    stratname = Db.Challenge(challenge).strategies.srandmember()
+    if stratname is not None:
+        strats = [s for s in strategies if s.name == stratname]
+        if not strats:
+            raise ValueError("Unkown named strategy {:s}".format(stratname))
     else:
-        raise ValueError("Cannot load strategy for unknown challenge {:s}".format(challenge))
+        strats = [s for s in strategies if challenge in s.challenges]
+        if not strats:
+            raise ValueError("No strategy for challenge {:s}".format(challenge))
+    return random.choice(strats)
 
 # Will raise SystemExit to allow cleanup code to run
 def stop_handler(signum, frame):
@@ -60,15 +70,13 @@ if __name__ == "__main__":
         # Wait for the loader to prepare the challenge
         while not (chaldb.exists() and chaldb.ready):
             logger.info("Waiting for configurations to be ready for %s", chaldb.id)
-            chaldb.invalidate()
             time.sleep(3)
 
         # Get the config and strategy
         config = load_config(chaldb.id)
-        strat = load_strategy(chaldb.id)
-
-        logging.info("Attempting to solve %s with %s strategy and %s config", chaldb.id, strat.name, os.path.basename(config))
-        runner = Runner(config)
-        runner.execute(strat)
-
-        os.remove(config)
+        try:
+            strat = load_strategy(chaldb.id)
+            logging.info("Attempting to solve %s with %s strategy and %s config", chaldb.id, strat.name, os.path.basename(config))
+            Runner(config).execute(strat)
+        finally:
+            os.remove(config)

@@ -3,11 +3,13 @@ from cancelation import CancelationToken
 import strategy
 import logging
 import net
-import os
 import subprocess
 import threading
 
 logger = logging.getLogger(__name__)
+
+abort_grace = 1.0
+"""Seconds to give before closing the tunnel on timeout"""
 
 class Runner:
     """Runner holds establishes connection to the challenge and runs the given strategy."""
@@ -24,8 +26,8 @@ class Runner:
             # Set a timeout for if we never connect
             def abort():
                 if ovpn.running():
-                    logger.error("Run timed out after %d seconds. Closing VPN connection...", self.timeout)
-                    ovpn.disconnect()
+                    logger.error("Run timed out after %d seconds.", self.timeout)
+                    threading.Timer(abort_grace, ovpn.disconnect).start()
 
             canceltoken = CancelationToken(parent=canceltoken, oncancel=abort, timeout=self.timeout)
 

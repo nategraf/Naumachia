@@ -74,13 +74,16 @@ if __name__ == "__main__":
     apply_defaults(config, defaults)
     logging.debug("Configuration to satisfy: %r", config)
 
+    Db.challenges.clear()
     for challenge, settings in config['challenges'].items():
         # Add a new unprepared challenge to the set
         chaldb = Db.Challenge(challenge)
         chaldb.ready = False
-        Db.challenges.add(chaldb)
+        chaldb.strategies.clear()
+        chaldb.certificates.clear()
         if settings['strategies'] is not None:
             chaldb.strategies.add(*settings['strategies'])
+        Db.challenges.add(chaldb)
 
         # Find any test certificates already in the registrar
         logger.info('Loading certificates for %s', challenge)

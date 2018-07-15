@@ -13,7 +13,7 @@ class PassiveStrategy(strategy.Strategy):
     a UDP packet matching the expected flag format.
     """
     needsip = False
-    challenge = 'listen'
+    challenges = ['listen']
 
     class AnalysisModule(capture.Module):
         def __init__(self, flagpattern):

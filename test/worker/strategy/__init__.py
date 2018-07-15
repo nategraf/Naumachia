@@ -11,8 +11,8 @@ class Strategy(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def challenge(self):
-        """Identifier for the challenge this strategy is meant to solve"""
+    def challenges(self):
+        """Identifier for the challenges this strategy is meant to solve"""
         pass
 
     @property
