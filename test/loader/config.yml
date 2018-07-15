@@ -1,5 +1,9 @@
 listen:
     certificates: 100
 
-example:
-    certificates: 100
+challenges:
+    listen:
+        certificates: 50
+
+    middle:
+        certificates: 50

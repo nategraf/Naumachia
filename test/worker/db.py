@@ -8,6 +8,7 @@ class Db(trol.Database):
             self.id = name
 
         certificates = trol.Set(typ=trol.Model)
+        strategies = trol.Set(typ=str)
         ready = trol.Property(typ=bool)
 
     class Certificate(trol.Model):

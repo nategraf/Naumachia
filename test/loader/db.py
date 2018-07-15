@@ -2,13 +2,13 @@ import trol
 
 class Db(trol.Database):
     challenges = trol.Set(typ=trol.Model)
-    ready = trol.Property(typ=bool)
 
     class Challenge(trol.Model):
         def __init__(self, name):
             self.id = name
 
         certificates = trol.Set(typ=trol.Model)
+        strategies = trol.Set(typ=str)
         ready = trol.Property(typ=bool)
 
     class Certificate(trol.Model):

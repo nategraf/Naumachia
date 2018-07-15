@@ -28,7 +28,7 @@ logging.basicConfig(level=_levelnum, format="[%(levelname)s %(asctime)s] %(messa
 logger = logging.getLogger(__name__)
 
 def load_config(challenge):
-    # Get a random certificate and config
+    """Load a random ovpn config for the challenge and save it to a temp file"""
     certdb = Db.Challenge(challenge).certificates.srandmember()
     fd, path = tempfile.mkstemp(prefix='naumachia', suffix='.ovpn')
     with open(fd, 'w') as f:
