@@ -19,6 +19,10 @@ import time
 scapy.conf.verb = 0
 
 class Sniffer:
+    """
+    Sniffer is the core component of the traffic capture framework.
+    This class uses the Scapy sniffer to collect packets off the wire. It then passes them to the modules for processing.
+    """
     def __init__(self, iface=None, processor=None, store=False, filter=None, quantum=0.25):
         self.iface = iface
         self.processor = processor
@@ -105,6 +109,10 @@ class Module:
         pass
 
 class ArpCacheModule(Module):
+    """
+    ArpCacheModule provides a cache of the ARP associations provided by other hosts.
+    It ignores ARP messages sent from this host and any other hosts specified in ``ignore``.
+    """
     def __init__(self, ignore=None):
         self.sniffer = None
         self.ignore = set() if ignore is None else set(ignore)
@@ -123,9 +131,12 @@ class ArpCacheModule(Module):
                 if psrc != '0.0.0.0':
                     self.cache[psrc] = src
 
-class ArpPoisoner(threading.Thread):
+class ArpPoisonerModule(Module):
+    """
+    ArpPoisonerModule will send out spoofed ARP messages at regular intervals to poison the network.
+    It also starts by sending out an arping to all targets to see who is on the network and populate the cache.
+    """
     def __init__(self, arpcache, iface=None, hwaddr=None, target=None, impersonate=None, interval=1):
-        threading.Thread.__init__(self)
         self.arpcache = arpcache
         self.iface = iface
         self.interval = interval
@@ -133,7 +144,10 @@ class ArpPoisoner(threading.Thread):
         self.target = target
         self.impersonate = impersonate
 
+        self.sniffer = None
+
         self._stopevent = threading.Event()
+        self._thread = None
 
     @staticmethod
     def enumerate(net):
@@ -183,32 +197,26 @@ class ArpPoisoner(threading.Thread):
             self.arpoison()
             time.sleep(self.interval)
 
+    def start(self, sniffer):
+        self._stopevent.clear()
+        self.sniffer = sniffer
+        if self.iface is None:
+            self.iface = self.sniffer.iface
+
+        if self._thread is None or not self._thread.is_alive():
+            self._thread = threading.Thread(target=self.run)
+            self._thread.start()
+
     def stop(self):
         self._stopevent.set()
 
-class ArpPoisonerModule(Module):
-    def __init__(self, arpcache, iface=None, hwaddr=None, target=None, impersonate=None, interval=1):
-        self.poisoner = ArpPoisoner(
-            arpcache=arpcache,
-            iface=iface,
-            hwaddr=hwaddr,
-            target=target,
-            impersonate=impersonate,
-            interval=interval
-        )
-        self.sniffer = None
-
-    def start(self, sniffer):
-        self.sniffer = sniffer
-        if self.poisoner.iface is None:
-            self.poisoner.iface = self.sniffer.iface
-
-        self.poisoner.start()
-
-    def stop(self):
-        self.poisoner.stop()
-
 class ForwarderModule(Module):
+    """
+    ForwarderModule forwards packets received by the sniffer and in the ARP cache, after applying a filter.
+    This serves to forward on packets intercepted, such as by ARP poisoning, onto the intended hosts.
+    The filter function should return one packet, a list of packets, or None.
+    Returned packets will be sent after having their eithernet addresses set.
+    """
     def __init__(self, arpcache, filter=None, iface=None, hwaddr=None):
         self.arpcache = arpcache
         self.filter = filter
