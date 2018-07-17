@@ -18,9 +18,8 @@ import time
 # Turn off print messages
 scapy.conf.verb = 0
 
-class Sniffer(threading.Thread):
+class Sniffer:
     def __init__(self, iface=None, processor=None, store=False, filter=None, quantum=0.25):
-        threading.Thread.__init__(self)
         self.iface = iface
         self.processor = processor
         self.store = store
@@ -30,6 +29,7 @@ class Sniffer(threading.Thread):
         self.modules = []
         self.packets = []
 
+        self._thread = None
         self._l2socket = None
         self._stopevent = threading.Event()
         self._moduleslock = threading.RLock()
@@ -66,6 +66,17 @@ class Sniffer(threading.Thread):
 
             if self._l2socket is not None:
                 self._l2socket.close()
+                self._l2socket = None
+
+    def start(self):
+        if self._thread is None or not self._thread.is_alive():
+            self._stopevent.clear()
+            self._thread = threading.Thread(target=self.run)
+            self._thread.start()
+
+    def join(self):
+        if self._thread is not None:
+            self._thread.join()
 
     def stop(self):
         self._stopevent.set()

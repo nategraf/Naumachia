@@ -36,6 +36,7 @@ class Runner:
 
             logger.info("Bringing up %s", self.iface)
             subprocess.run(['ip', 'link', 'set', self.iface, 'up'], check=True)
+            subprocess.run(['ip', 'link', 'set', self.iface, 'promisc', 'on'], check=True)
             if strat.needsip:
                 logger.info("Obtaining an IP address with DHCP")
                 subprocess.run(['dhclient', self.iface], check=True)
