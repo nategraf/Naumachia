@@ -56,10 +56,5 @@ class ArpPoisonStrategy(strategy.Strategy):
         if canceltoken is not None:
             canceltoken.fork(oncancel=sniffer.stop)
 
-        try:
-            sniffer.start()
-            sniffer.join()
-        finally:
-            sniffer.stop()
-
+        sniffer.run()
         return analyser.flag

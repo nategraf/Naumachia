@@ -73,8 +73,10 @@ class Sniffer:
                 self._l2socket = None
 
     def start(self):
+        self._stopevent.clear()
         if self._thread is None or not self._thread.is_alive():
-            self._stopevent.clear()
+            with self._moduleslock:
+                self._newmodules = list(self.modules)
             self._thread = threading.Thread(target=self.run)
             self._thread.start()
 
