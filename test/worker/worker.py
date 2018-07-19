@@ -4,6 +4,8 @@ from db import Db
 import signal
 import strategy.listen
 import strategy.example
+import strategy.letter
+import strategy.scraps
 import logging
 import os
 import random
@@ -29,7 +31,9 @@ logger = logging.getLogger(__name__)
 
 strategies = [
     strategy.listen.PassiveStrategy(),
-    strategy.example.ArpPoisonStrategy()
+    strategy.example.ArpPoisonStrategy(),
+    strategy.scraps.ImpersonatorStrategy(),
+    strategy.letter.CorruptTlsStrategy(),
 ]
 
 def load_config(challenge):
