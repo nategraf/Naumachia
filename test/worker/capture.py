@@ -248,3 +248,24 @@ class ForwarderModule(Module):
                     if pkt is not None:
                         pkt[scapy.Ether].src = self.hwaddr
                         scapy.sendp(pkt, iface=self.iface)
+
+class ArpMitmModule(Module):
+    def __init__(self, filter=None, iface=None, hwaddr=None):
+        self.cachemodule = ArpCacheModule(ignore=[hwaddr])
+        self.poisonermodule = ArpPoisonerModule(self.cachemodule.cache, iface=iface, hwaddr=hwaddr)
+        self.forwardermodule = ForwarderModule(self.cachemodule.cache, filter=filter, iface=iface, hwaddr=hwaddr)
+        self.submodules = (self.cachemodule, self.poisonermodule, self.forwardermodule)
+        self.sniffer = None
+
+    def start(self, sniffer):
+        self.sniffer = sniffer
+        for mod in self.submodules:
+            mod.start(sniffer)
+
+    def process(self, pkt):
+        for mod in self.submodules:
+            mod.process(pkt)
+
+    def stop(self):
+        for mod in self.submodules:
+            mod.stop()

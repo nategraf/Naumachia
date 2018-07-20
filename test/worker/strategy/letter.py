@@ -53,13 +53,10 @@ class CorruptTlsStrategy(strategy.Strategy):
 
     def execute(self, iface, flagpattern, canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
-        cachemod = capture.ArpCacheModule()
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
-            cachemod,
             analyser,
-            capture.ArpPoisonerModule(cachemod.cache),
-            capture.ForwarderModule(cachemod.cache, filter=self.corrupttls),
+            capture.ArpMitmModule(filter=self.corrupttls),
         )
 
         if canceltoken is not None:

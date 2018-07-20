@@ -44,13 +44,10 @@ class ArpPoisonStrategy(strategy.Strategy):
 
     def execute(self, iface, flagpattern, canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
-        cachemod = capture.ArpCacheModule()
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
-            cachemod,
             analyser,
-            capture.ArpPoisonerModule(cachemod.cache),
-            capture.ForwarderModule(cachemod.cache),
+            capture.ArpMitmModule()
         )
 
         if canceltoken is not None:
