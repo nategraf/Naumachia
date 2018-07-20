@@ -238,6 +238,7 @@ class ForwarderModule(Module):
         if scapy.IP in pkt and scapy.Ether in pkt:
             if pkt[scapy.Ether].dst == self.hwaddr and pkt[scapy.Ether].src != self.hwaddr:
                 if pkt[scapy.IP].dst in self.arpcache:
+                    pkt = pkt.copy()
                     pkt[scapy.Ether].dst = self.arpcache[pkt[scapy.IP].dst]
 
                     # After having patched the dst MAC, but before patching the src, apply the filter
