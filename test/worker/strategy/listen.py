@@ -30,7 +30,7 @@ class PassiveStrategy(strategy.Strategy):
             if pkt.haslayer(scapy.Raw):
                 try:
                     load = pkt.load.decode('utf-8')
-                except DecodeError:
+                except UnicodeDecodeError:
                     return
 
                 m = re.search(self.flagpattern, load)

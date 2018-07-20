@@ -66,6 +66,7 @@ def stop_handler(signum, frame):
 if __name__ == "__main__":
     # Open the connection to redis
     Db.redis = redis.Redis(host=REDIS_ADDR, port=REDIS_PORT)
+    signal.signal(signal.SIGINT, stop_handler)
     signal.signal(signal.SIGTERM, stop_handler)
 
     while True:
