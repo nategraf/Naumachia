@@ -12,6 +12,7 @@ import tarfile
 import logging
 
 logger = logging.getLogger(__name__)
+script_dir = os.path.dirname(os.path.realpath(__file__))
 
 wildcard = '*'
 defaults = {
@@ -26,16 +27,19 @@ defaults = {
     },
     'registrar': {
         'port': 3960,
-        'network': 'default'
+        'network': 'default',
+        'tls_enabled': False,
+        'tls_verify_client': False
     }
 }
 
 EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.4/EasyRSA-3.0.4.tgz'
 EASYRSA_DIR='EasyRSA-3.0.4'
-EASYRSA_DEFAULT=path.abspath(path.join(path.dirname(__file__), 'tools', EASYRSA_DIR, 'easyrsa'))
+EASYRSA_DEFAULT=path.abspath(path.join(script_dir, 'tools', EASYRSA_DIR, 'easyrsa'))
+REGISTRAR_CERT_DIR=path
 
 def install_easyrsa():
-    install_dir = path.abspath(path.join(path.dirname(__file__), 'tools'))
+    install_dir = path.abspath(path.join(script_dir, 'tools'))
 
     if not path.isdir(install_dir):
         makedirs(install_dir)
@@ -82,17 +86,16 @@ def read_config(filename):
     return config
 
 def parse_args():
-    dir = path.dirname(__file__)
-
     parser = argparse.ArgumentParser(
             description='Parse the Naumachia config file and set up the environment',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('--verbosity', '-v', metavar="LEVEL", default="info", choices=('critical', 'error', 'warning', 'info', 'debug'), help="logging level to use")
-    parser.add_argument('--config', metavar="PATH", default=path.join(dir, 'config.yml'), help='path to Naumachia config file')
-    parser.add_argument('--templates', metavar="PATH", default=path.join(dir, 'templates'), help='path to the configuration templates')
-    parser.add_argument('--compose', metavar="PATH", default=path.join(dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
-    parser.add_argument('--ovpn-configs', metavar="PATH", default=path.join(dir, 'openvpn', 'config'), help='path to openvpn configurations')
+    parser.add_argument('--config', metavar="PATH", default=path.join(script_dir, 'config.yml'), help='path to Naumachia config file')
+    parser.add_argument('--templates', metavar="PATH", default=path.join(script_dir, 'templates'), help='path to the configuration templates')
+    parser.add_argument('--registrar_certs', metavar="PATH", default=path.join(script_dir, 'registrar/certs'), help='path to the configuration templates')
+    parser.add_argument('--compose', metavar="PATH", default=path.join(script_dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
+    parser.add_argument('--ovpn_configs', metavar="PATH", default=path.join(script_dir, 'openvpn', 'config'), help='path to openvpn configurations')
     parser.add_argument('--easyrsa', metavar="PATH", default=EASYRSA_DEFAULT, help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
 
     return parser.parse_args()
