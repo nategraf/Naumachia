@@ -28,6 +28,9 @@ REDIS_ADDR = os.environ.get('REDIS_ADDR', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
 LOADER_CONFIG = os.environ.get('LOADER_CONFIG', os.path.join(script_dir, 'config.yml'))
+TLS_CERT = os.environ.get('TLS_KEY', None)
+TLS_KEY = os.environ.get('TLS_CERT', None)
+TLS_CA = os.environ.get('TLS_CA', None)
 
 _levelnum = getattr(logging, LOG_LEVEL.upper(), None)
 if not isinstance(_levelnum, int):
@@ -85,9 +88,15 @@ if __name__ == "__main__":
             chaldb.strategies.add(*settings['strategies'])
         Db.challenges.add(chaldb)
 
+        session = requests.Session()
+        if TLS_CA is not None:
+            session.verify = TLS_CA
+        if TLS_CERT is not None:
+            session.cert = (TLS_CERT, TLS_KEY)
+
         # Find any test certificates already in the registrar
         logger.info('Loading certificates for %s', challenge)
-        resp = requests.get(urljoin(config['registrar'], challenge + '/list'))
+        resp = session.get(urljoin(config['registrar'], challenge + '/list'))
         resp.raise_for_status()
         cns = { entry['cn'] for entry in resp.json() if istestcn(entry['cn']) }
         logger.debug("Exisitng test certificates: %r", cns)
@@ -100,7 +109,7 @@ if __name__ == "__main__":
                 cn = gentestcn()
 
                 logger.debug('Adding %s', cn)
-                requests.get(urljoin(config['registrar'], challenge + '/add'), params={'cn': cn}).raise_for_status()
+                session.get(urljoin(config['registrar'], challenge + '/add'), params={'cn': cn}).raise_for_status()
                 cns.add(cn)
 
         if diff < 0:
@@ -109,7 +118,7 @@ if __name__ == "__main__":
                 cn = cns.pop()
 
                 logger.debug('Removing %s', cn)
-                requests.get(urljoin(config['registrar'], challenge + '/remove'), params={'cn': cn}).raise_for_status()
+                session.get(urljoin(config['registrar'], challenge + '/remove'), params={'cn': cn}).raise_for_status()
 
         logging.info("Prepared %d certificates", len(cns))
 
