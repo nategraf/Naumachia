@@ -209,7 +209,7 @@ if __name__ == "__main__":
             if ca is not None:
                 ca = append_domain(ca, config['domain'])
 
-            if not path.isfile(path.join(args.registrar_certs, cn + 'crt')):
+            if not path.isfile(path.join(args.registrar_certs, cn + '.crt')):
                 with rendertmp(config_template, {'cn': cn, 'ca': ca is None}) as certconfig:
                     generator.create(cn, ca=ca, config=certconfig.name)
                 logger.info("Created new certificate for {}".format(cn))

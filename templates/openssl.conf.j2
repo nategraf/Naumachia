@@ -1,0 +1,18 @@
+[ req ]
+distinguished_name  = req_distinguished_name
+req_extensions = {% if ca %}ca{% else %}host{% endif %}
+prompt = no
+
+[ req_distinguished_name ]
+CN = {{ cn }}
+
+[ ca ]
+# X509 extensions for a ca
+keyUsage                = critical, cRLSign, keyCertSign
+basicConstraints        = CA:TRUE, pathlen:0
+
+[ host ]
+# X509 extensions for a server
+keyUsage                = critical,digitalSignature,keyEncipherment
+extendedKeyUsage        = serverAuth,clientAuth
+basicConstraints        = critical,CA:FALSE

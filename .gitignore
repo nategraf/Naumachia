@@ -6,6 +6,7 @@
 /eve/config/*
 **/pki/*
 *.pem
+/registrar/certs
 
 *.pyc
 __pycache__

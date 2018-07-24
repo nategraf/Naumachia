@@ -45,6 +45,11 @@ services:
             - ./openvpn/config/:/var/openvpn
             - ./registrar/app:/app:ro
             - ./logs/registrar:/var/log/gunicorn
+            {% if registrar.tls_enabled -%}
+            - ./registrar/certs/registrar{% if domain %}.{{ domain }}{% endif %}.crt:/etc/ssl/registrar.crt
+            - ./registrar/certs/registrar{% if domain %}.{{ domain }}{% endif %}.key:/etc/ssl/registrar.key
+            - ./registrar/certs/ca{% if domain %}.{{ domain }}{% endif %}.crt:/etc/ssl/ca.crt
+            {%- endif %}
         environment:
             - OPENVPN_BASE=/var/openvpn
             - TLS_ENABLED={{ registrar.tls_enabled }}
