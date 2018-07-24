@@ -15,6 +15,17 @@ registrar:
     # [default: "default"] The docker network the registrar is connected to.
     # The network will be unmanaged by compose except for the default network
     network: default
+    # [default: false] Whether to serve using TLS
+    # If enabled, configure.py will set up a CA and certificates for the registrar
+    tls_enabled: true
+    # [default: false] Whether to enable TLS client verification
+    # Only has an effect if tls_enabled is true
+    tls_verify_client: true
+    # [optional] Clients for whom certificates will be generated
+    # Used in conbination with tls_verify_client to provide authentication
+    tls_clients:
+        - admin
+        - www
 
 # [required] Configurations for each challenge
 challenges:
