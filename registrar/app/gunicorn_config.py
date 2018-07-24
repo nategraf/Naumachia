@@ -8,8 +8,8 @@ Options:
 * ERROR_LOG         (default: /var/log/gunicorn/error.log)
 * TLS_ENBALED       (default: False)
 * TLS_VERIFY_CLIENT (default: False)
-* TLS_KEY           (default: /etc/ssl/registrar.crt)
-* TLS_CERT          (default: /etc/ssl/registrar.key)
+* TLS_CERT          (default: /etc/ssl/registrar.crt)
+* TLS_KEY           (default: /etc/ssl/registrar.key)
 * TLS_CA            (default: /etc/ssl/ca.crt)
 """
 
@@ -24,8 +24,8 @@ ERROR_LOG = os.environ.get('ERROR_LOG', '/var/log/gunicorn/error.log')
 
 TLS_ENABLED = os.environ.get('TLS_ENABLED', 'False')
 TLS_VERIFY_CLIENT = os.environ.get('TLS_VERIFY_CLIENT', 'False')
-TLS_KEY = os.environ.get('TLS_KEY', '/etc/ssl/registrar.crt')
-TLS_CERT = os.environ.get('TLS_CERT', '/etc/ssl/registrar.key')
+TLS_CERT = os.environ.get('TLS_KEY', '/etc/ssl/registrar.crt')
+TLS_KEY = os.environ.get('TLS_CERT', '/etc/ssl/registrar.key')
 TLS_CA = os.environ.get('TLS_CA', '/etc/ssl/ca.crt')
 
 # Workers and binding

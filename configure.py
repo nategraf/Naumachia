@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from os import path, makedirs, chmod
+from lazycert import LazyCert
 import io
 import jinja2
 import sys
@@ -10,9 +11,10 @@ import subprocess
 import requests
 import tarfile
 import logging
+import tempfile
 
 logger = logging.getLogger(__name__)
-script_dir = os.path.dirname(os.path.realpath(__file__))
+script_dir = path.dirname(path.realpath(__file__))
 
 wildcard = '*'
 defaults = {
@@ -29,7 +31,8 @@ defaults = {
         'port': 3960,
         'network': 'default',
         'tls_enabled': False,
-        'tls_verify_client': False
+        'tls_verify_client': False,
+        'clients': []
     }
 }
 
@@ -76,10 +79,7 @@ def read_config(filename):
     apply_defaults(config, defaults)
     for chal_name, chal_settings in config['challenges'].items():
         if 'commonname' not in chal_settings:
-            if config['domain']:
-                chal_settings['commonname'] = '.'.join((chal_name, config['domain']))
-            else:
-                chal_settings['commonname'] = chal_name
+            chal_settings['commonname'] = append_domain(chal_name, config['domain'])
 
     logger.debug("Modified: %s", config)
 
@@ -127,19 +127,28 @@ def init_pki(easyrsa, directory, cn):
         if e.output:
             logger.error(e.output)
 
-def render(tpl_path, dst_path, context):
+def _render(tpl_path, context):
     dirname, filename = path.split(tpl_path)
-    result = jinja2.Environment(
+    return jinja2.Environment(
         loader=jinja2.FileSystemLoader(dirname or './')
     ).get_template(filename).render(context)
 
+def render(tpl_path, dst_path, context):
     with open(dst_path, 'w') as f:
-        f.write(result)
-
+        f.write(_render(tpl_path, context))
     logger.info("Rendered {} from {} ".format(dst_path, tpl_path))
 
-    return result
+def rendertmp(tpl_path, context):
+    f = tempfile.NamedTemporaryFile(mode='w+')
+    f.write(_render(tpl_path, context))
+    f.flush()
+    return f
 
+def append_domain(name, domain):
+    if domain:
+        return '.'.join((name, domain))
+    else:
+        return name
 
 if __name__ == "__main__":
     args = parse_args()
@@ -184,3 +193,30 @@ if __name__ == "__main__":
 
         render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
         render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)
+
+    # Create certificates for the registrar if needed
+    if config['registrar'] and config['registrar']['tls_enabled']:
+        logger.info("Setting up certificates for registrar in {}".format(args.registrar_certs))
+        if not path.isdir(args.registrar_certs):
+            makedirs(args.registrar_certs)
+
+        generator = LazyCert(args.registrar_certs)
+        config_template = path.join(args.templates, 'openssl.conf.j2')
+
+        # Create the gencert function here to have config and args in closure
+        def gencert(name, ca=None):
+            cn = append_domain(name, config['domain'])
+            if ca is not None:
+                ca = append_domain(ca, config['domain'])
+
+            if not path.isfile(path.join(args.registrar_certs, cn + 'crt')):
+                with rendertmp(config_template, {'cn': cn, 'ca': ca is None}) as certconfig:
+                    generator.create(cn, ca=ca, config=certconfig.name)
+                logger.info("Created new certificate for {}".format(cn))
+            else:
+                logger.info("Using existing certificate for {}".format(cn))
+
+        gencert('ca')
+        gencert('registrar', 'ca')
+        for client in config['registrar']['clients']:
+            gencert(client, 'ca')

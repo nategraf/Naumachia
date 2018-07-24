@@ -47,6 +47,8 @@ services:
             - ./logs/registrar:/var/log/gunicorn
         environment:
             - OPENVPN_BASE=/var/openvpn
+            - TLS_ENABLED={{ registrar.tls_enabled }}
+            - TLS_VERIFY_CLIENT={{ registrar.tls_verify_client }}
         networks:
             internal:
             {{ registrar.network }}:
