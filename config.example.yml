@@ -23,6 +23,7 @@ registrar:
     tls_verify_client: true
     # [optional] Clients for whom certificates will be generated
     # Used in conbination with tls_verify_client to provide authentication
+    # For each client in this list a certificate and key will be created in the registrar/certs directory
     tls_clients:
         - admin
         - www

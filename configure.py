@@ -32,7 +32,7 @@ defaults = {
         'network': 'default',
         'tls_enabled': False,
         'tls_verify_client': False,
-        'clients': []
+        'tls_clients': []
     }
 }
 
@@ -218,5 +218,5 @@ if __name__ == "__main__":
 
         gencert('ca')
         gencert('registrar', 'ca')
-        for client in config['registrar']['clients']:
+        for client in config['registrar']['tls_clients']:
             gencert(client, 'ca')
