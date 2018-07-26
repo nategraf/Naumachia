@@ -11,6 +11,8 @@ services:
     worker:
         build: ./worker
         image: naumachia/test.worker
+        sysctls:
+            net.ipv4.ip_forward: 0
         cap_add:
             - NET_ADMIN
         environment:
