@@ -7,7 +7,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
-class PassiveStrategy(strategy.Strategy):
+class Strategy(strategy.Strategy):
     """
     PassiveStrategy solves the 'listen' challenge by opening a sniffer and waiting for
     a UDP packet matching the expected flag format.

@@ -7,7 +7,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
-class ArpPoisonStrategy(strategy.Strategy):
+class Strategy(strategy.Strategy):
     """
     ArpPoisonStrategy solves the 'middle'/'example' challenge challenge through by
     ARP poisoning the network and performing to perform a MITM attack. It then watches

@@ -30,10 +30,10 @@ logging.basicConfig(level=_levelnum, format="[%(levelname)s %(asctime)s] %(messa
 logger = logging.getLogger(__name__)
 
 strategies = [
-    strategy.listen.PassiveStrategy(),
-    strategy.example.ArpPoisonStrategy(),
-    strategy.scraps.ImpersonatorStrategy(),
-    strategy.letter.CorruptTlsStrategy(),
+    strategy.listen.Strategy(),
+    strategy.example.Strategy(),
+    strategy.scraps.Strategy(),
+    strategy.letter.Strategy(),
 ]
 
 def load_config(challenge):

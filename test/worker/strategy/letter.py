@@ -7,7 +7,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
-class CorruptTlsStrategy(strategy.Strategy):
+class Strategy(strategy.Strategy):
     """
     CorruptTlsStrategy solves the "letter" challenge by executing a MITM attack and corrupting the STARTTLS command.
     The is accomplished by replacing 'STARTTLS' with 'STARTFOO' when sent to the server. The server will respond with
