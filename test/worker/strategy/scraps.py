@@ -8,6 +8,7 @@ import socket
 import subprocess
 import net
 import threading
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class Strategy(strategy.Strategy):
                         self.bindport += 1
                     else:
                         logger.info("Expection while attempting to intercept: {!s}".format(e))
+                        time.sleep(1)
                 finally:
                     s.close()
 
