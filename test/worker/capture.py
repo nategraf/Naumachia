@@ -77,7 +77,7 @@ class Sniffer:
         if self._thread is None or not self._thread.is_alive():
             with self._moduleslock:
                 self._newmodules = list(self.modules)
-            self._thread = threading.Thread(target=self.run)
+            self._thread = threading.Thread(target=self.run, daemon=True)
             self._thread.start()
 
     def join(self):
@@ -206,7 +206,7 @@ class ArpPoisonerModule(Module):
             self.iface = self.sniffer.iface
 
         if self._thread is None or not self._thread.is_alive():
-            self._thread = threading.Thread(target=self.run)
+            self._thread = threading.Thread(target=self.run, daemon=True)
             self._thread.start()
 
     def stop(self):
@@ -251,10 +251,10 @@ class ForwarderModule(Module):
 
 class ArpMitmModule(Module):
     def __init__(self, filter=None, iface=None, hwaddr=None):
-        self.cachemodule = ArpCacheModule(ignore=[hwaddr])
-        self.poisonermodule = ArpPoisonerModule(self.cachemodule.cache, iface=iface, hwaddr=hwaddr)
-        self.forwardermodule = ForwarderModule(self.cachemodule.cache, filter=filter, iface=iface, hwaddr=hwaddr)
-        self.submodules = (self.cachemodule, self.poisonermodule, self.forwardermodule)
+        self.cache = ArpCacheModule(ignore=[hwaddr])
+        self.poisoner = ArpPoisonerModule(self.cache.cache, iface=iface, hwaddr=hwaddr)
+        self.forwarder = ForwarderModule(self.cache.cache, filter=filter, iface=iface, hwaddr=hwaddr)
+        self.submodules = (self.cache, self.poisoner, self.forwarder)
         self.sniffer = None
 
     def start(self, sniffer):
