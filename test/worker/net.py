@@ -199,7 +199,11 @@ class OpenVpn:
     def disconnect(self):
         if self.running():
             self._process.terminate()
-            os.waitpid(self._process.pid, 0)
+            try:
+                os.waitpid(self._process.pid, 0)
+            except ChildProcessError:
+                # process is already dead
+                pass
 
     def waitforinit(self):
         if not self.initialized:
