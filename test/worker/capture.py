@@ -269,3 +269,118 @@ class ArpMitmModule(Module):
     def stop(self):
         for mod in self.submodules:
             mod.stop()
+
+class TcpFlags(enum.IntEnum):
+    FIN = 0x01
+    SYN = 0x02
+    RST = 0x04
+    PSH = 0x08
+    ACK = 0x10
+    URG = 0x20
+    ECE = 0x40
+    CWR = 0x80
+
+class TcpFilterWrapper:
+    """
+    TcpFilterWrapper wraps a packet filter and adjusts seq and ack numbers to account for altered data lengths
+    The wrapped filter should not change the seq or ack number, as they wil be reset
+    The wrapped filter may drop a packet by returning None in which case nothing will be forwarded
+    """
+    def __init__(self, filter):
+        self.filter = filter
+        self.offsets = {}
+
+    class FlowKey:
+        @classmethod
+        def frompkt(cls, pkt):
+            ip, tcp = pkt[scapy.IP], pkt[scapy.TCP]
+            return cls(ip.src, tcp.sport, ip.dst, tcp.dport)
+
+        def __init__(self, src, sport, dst, dport):
+            self.src = src
+            self.sport = sport
+            self.dst = dst
+            self.dport = dport
+
+        def inverse(self):
+            return self.__class__(self.dst, self.dport, self.src, self.sport)
+
+        def __hash__(self):
+            return hash((self.src, self.sport, self.dst, self.dport))
+
+        def __eq__(self, other):
+            return all((
+                isinstance(other, self.__class__),
+                self.src == other.src,
+                self.sport == other.sport,
+                self.dst == other.dst,
+                self.dport == other.dport
+            ))
+
+    class Offset:
+        def __init__(self):
+            self.list = []
+
+        def getseq(self, seq):
+            offset = 0
+            for curr in self.list:
+                if curr[0] < seq:
+                    offset += curr[1]
+                else:
+                    break
+            return seq + offset
+
+        def getack(self, ack):
+            for curr in self.list:
+                if curr[0] < ack:
+                    ack -= curr[1]
+                else:
+                    break
+            return ack
+
+        def add(self, seq, diff):
+            """Add a new entry to the list to account for diff bytes added at seq"""
+            # Insert into sorted list using linear search because it will almost always be the front
+            new = (seq, diff)
+            for i, curr in enumerate(reversed(self.list)):
+                if new > curr:
+                    self.list.insert(len(self.list) - i, new)
+                    break
+            else:
+                self.list.insert(0, new)
+
+    def __call__(self, pkt):
+        if all(layer in pkt for layer in (scapy.Ether, scapy.IP, scapy.TCP)):
+            seq, ack = pkt[scapy.TCP].seq, pkt[scapy.TCP].ack
+
+            key = self.FlowKey.frompkt(pkt)
+            if pkt[scapy.TCP].flags & TcpFlags.SYN or key not in self.offsets:
+                self.offsets[key] = self.Offset()
+            offset = self.offsets[key]
+
+            before = len(pkt[scapy.Raw].load) if scapy.Raw in pkt else 0
+            pkt = self.filter(pkt)
+            if pkt is None:
+                # The packet, and its data, was dropped
+                offset.add(seq, -before)
+            else:
+                after = len(pkt[scapy.Raw].load) if scapy.Raw in pkt else 0
+                diff = after - before
+                if diff != 0:
+                    offset.add(seq, diff)
+
+                pkt[scapy.TCP].seq = offset.getseq(seq)
+
+                inverse_key = key.inverse()
+                if pkt[scapy.TCP].flags & TcpFlags.ACK and inverse_key in self.offsets:
+                    pkt[scapy.TCP].ack = self.offsets[inverse_key].getack(ack)
+
+                # Force checksum recalculation
+                pkt[scapy.IP].len += diff
+                del pkt[scapy.TCP].chksum
+                del pkt[scapy.IP].chksum
+
+            return pkt
+
+def tcpfilter(filter):
+    return TcpFilterWrapper(filter)

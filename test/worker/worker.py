@@ -3,9 +3,10 @@ from runner import Runner
 from db import Db
 import signal
 import strategy.listen
-import strategy.example
+import strategy.middle
 import strategy.letter
 import strategy.scraps
+import strategy.piggies
 import logging
 import os
 import random
@@ -31,9 +32,10 @@ logger = logging.getLogger(__name__)
 
 strategies = [
     strategy.listen.Strategy(),
-    strategy.example.Strategy(),
+    strategy.middle.Strategy(),
     strategy.scraps.Strategy(),
     strategy.letter.Strategy(),
+    strategy.piggies.Strategy(),
 ]
 
 def load_config(challenge):

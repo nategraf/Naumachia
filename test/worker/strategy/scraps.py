@@ -65,7 +65,7 @@ class Strategy(strategy.Strategy):
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
                     addr = (self.bindaddr, self.bindport)
-                    logger.info("Listening on {!s}".format(addr))
+                    logger.debug("Listening on {!s}".format(addr))
                     s.bind(addr)
                     s.listen(1)
                     s.settimeout(1)
