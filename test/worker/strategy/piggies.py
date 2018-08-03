@@ -17,6 +17,7 @@ class Strategy(strategy.Strategy):
     challenges = ['straw', 'sticks', 'brick']
 
     class AnalysisModule(capture.Module):
+        """AnalysisModule looks at any TCP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
             self.flag = None
@@ -40,7 +41,9 @@ class Strategy(strategy.Strategy):
                     self.sniffer.stop()
 
     @capture.tcpfilter
+    @staticmethod
     def injectcmd(pkt):
+        """injectcmd looks for a telnet client packet and if it has the `cd` command, reaplces it with `cat .ctf_flag`"""
         if all(layer in pkt for layer in (scapy.IP, scapy.TCP)):
             if scapy.Raw in pkt and pkt[scapy.TCP].dport == 23:
                 raw = pkt[scapy.Raw]

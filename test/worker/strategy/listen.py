@@ -17,6 +17,7 @@ class Strategy(strategy.Strategy):
     challenges = ['listen']
 
     class AnalysisModule(capture.Module):
+        """AnalysisModule looks at any IP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
             self.flag = None
@@ -28,7 +29,7 @@ class Strategy(strategy.Strategy):
         def process(self, pkt):
             logger.debug(pkt.sprintf("{IP:%IP.src%: }{Raw:%Raw.load%}"))
 
-            if pkt.haslayer(scapy.Raw):
+            if scapy.Raw in pkt:
                 try:
                     load = pkt.load.decode('utf-8')
                 except UnicodeDecodeError:

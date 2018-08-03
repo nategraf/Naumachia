@@ -18,6 +18,7 @@ class Strategy(strategy.Strategy):
     challenges = ['example', 'middle']
 
     class AnalysisModule(capture.Module):
+        """AnalysisModule watches the request and response in this challenge and watches for a confirmed flag"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
             self.question = None

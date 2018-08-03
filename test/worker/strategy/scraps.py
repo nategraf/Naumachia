@@ -22,6 +22,7 @@ class Strategy(strategy.Strategy):
     challenges = ['scraps']
 
     class ImpersonatorModule(capture.Module):
+        """ImpresonatorModule watches for ARP packets and assumes any IP address it sees requested"""
         def __init__(self):
             self.ips = set()
             self.iface = None
@@ -42,6 +43,7 @@ class Strategy(strategy.Strategy):
                         subprocess.run(['ip', 'addr', 'add', cidr, 'dev', self.iface])
 
     class ReverseShellCatcherModule(capture.Module):
+        """ReserveShellCatcherModule determines which port the reserve shell will connect on and listens for it"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
             self.flag = None

