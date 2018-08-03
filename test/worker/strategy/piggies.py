@@ -14,7 +14,7 @@ class Strategy(strategy.Strategy):
     """
     name = "inject command into TCP stream"
     needsip = True
-    challenges = ['straw', 'stick', 'brick']
+    challenges = ['straw', 'sticks', 'brick']
 
     class AnalysisModule(capture.Module):
         def __init__(self, flagpattern):
