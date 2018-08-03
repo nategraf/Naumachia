@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 class Strategy(strategy.Strategy):
     """
-    CorruptTlsStrategy solves the "letter" challenge by executing a MITM attack and corrupting the STARTTLS command.
+    This strategy solves the "letter" challenge by executing a MITM attack and corrupting the STARTTLS command.
     The is accomplished by replacing 'STARTTLS' with 'STARTFOO' when sent to the server. The server will respond with
     and error and the client will continue without encryption. The flag is in the emails.
     """
+    name = "corrupt STARTTLS"
     needsip = True
     challenges = ['letter']
 

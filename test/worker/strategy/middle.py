@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 class Strategy(strategy.Strategy):
     """
-    ArpPoisonStrategy solves the 'middle'/'example' challenge challenge through by
+    This strategy solves the 'middle'/'example' challenge challenge through by
     ARP poisoning the network and performing to perform a MITM attack. It then watches
     the bidirectional flow of UDP packets until it sees a positive response to the flag.
     """
+    name = "ARP poison and wait"
     needsip = True
     challenges = ['example', 'middle']
 

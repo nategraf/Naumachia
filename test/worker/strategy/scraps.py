@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 class Strategy(strategy.Strategy):
     """
-    ImpersonatorStrategy solves the scraps challenge by immediatly assuming the IP address asked for by any ARP request.
+    This strategy solves the scraps challenge by immediatly assuming the IP address asked for by any ARP request.
     It then waits for a TCP SYN, and upon recieving it starts listening for another 10 ports ahead within 15 seconds.
     """
+    name = "rolling TCP listener"
     needsip = False
     challenges = ['scraps']
 

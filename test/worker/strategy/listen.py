@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 class Strategy(strategy.Strategy):
     """
-    PassiveStrategy solves the 'listen' challenge by opening a sniffer and waiting for
+    This strategy solves the 'listen' challenge by opening a sniffer and waiting for
     a UDP packet matching the expected flag format.
     """
+    name = "passive listening"
     needsip = False
     challenges = ['listen']
 

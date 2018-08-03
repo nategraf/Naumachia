@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 class Strategy(strategy.Strategy):
     """
-    Strategy solves the three piggies challenges (straw, sticks, brick) by injecting a command into the TCP stream
+    This strategy solves the three piggies challenges (straw, sticks, brick) by injecting a command into the TCP stream
     Straw and sticks can be solved in "easier" ways, but this Strategy works for all three
     """
+    name = "inject command into TCP stream"
     needsip = True
     challenges = ['straw', 'stick', 'brick']
 
