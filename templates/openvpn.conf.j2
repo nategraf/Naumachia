@@ -1,37 +1,36 @@
 mode server
-tls-server
 
-log /var/log/openvpn.log
-
-verb 3
-key /etc/openvpn/pki/private/{{ chal.commonname }}.key
-ca /etc/openvpn/pki/ca.crt
-cert /etc/openvpn/pki/issued/{{ chal.commonname }}.crt
-dh /etc/openvpn/pki/dh.pem
-key-direction 0
-persist-key
-#keepalive 10 60
-#persist-tun
-
-# provides no aditional security in the Naumachia use case
-#tls-auth /etc/openvpn/pki/ta.key
-
-ping 10
-ping-exit 1800
-
-cipher AES-256-CBC
-auth SHA256
+proto udp
+comp-lzo
+dev tap0
 
 # Rely on Docker to do port mapping, internally always 1194
 port 1194
 
-proto udp
-dev tap0
+# Logging settings
+log /var/log/openvpn.log
 status /tmp/openvpn-status.log
+verb 3
 
+# TLS Settings
+tls-server
+key /etc/openvpn/pki/private/{{ chal.commonname }}.key
+cert /etc/openvpn/pki/issued/{{ chal.commonname }}.crt
+ca /etc/openvpn/pki/ca.crt
+dh /etc/openvpn/pki/dh.pem
+cipher AES-256-CBC
+auth SHA256
+key-direction 0
+persist-key
+
+# Ping every 10 seconds and disconnect the client after 30 minutes if no response
+# Disconnecting the client allows challenge resources to be cleaned up
+ping 10
+ping-exit 1800
+
+# Drop privileges once running
 user nobody
 group nogroup
-comp-lzo
 
 {% if chal.openvpn_management_port -%}
 ### Open the management interface
@@ -42,13 +41,14 @@ management 127.0.0.1 {{ chal.openvpn_management_port }}
 # Inform Windows machines that they should renew DHCP on connect
 push dhcp-renew
 
-# Allow the same to connect multiple times
+# Allow the same client to connect multiple times
 duplicate-cn
 
-### Set up connect and disconnect scripts which notify the Redis DB
+# Set up connect and disconnect scripts which notify the Redis DB
 script-security 2
 client-connect /scripts/naumachia/client_connect.py
 client-disconnect /scripts/naumachia/client_disconnect.py
 
-### VLAN Tagging
+# VLAN Tagging
+# Provided by https://github.com/OpenVPN/openvpn/pull/76
 vlan-tagging
