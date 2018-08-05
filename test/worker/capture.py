@@ -14,6 +14,7 @@ import enum
 import net
 import threading
 import time
+import socket
 
 # Turn off print messages
 scapy.conf.verb = 0
@@ -86,6 +87,13 @@ class Sniffer:
 
     def stop(self):
         self._stopevent.set()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.stop()
 
 class Module:
     """
@@ -280,42 +288,43 @@ class TcpFlags(enum.IntEnum):
     ECE = 0x40
     CWR = 0x80
 
-class TcpFilterWrapper:
+class TcpFlowKey:
+    @classmethod
+    def frompkt(cls, pkt):
+        ip, tcp = pkt[scapy.IP], pkt[scapy.TCP]
+        return cls(ip.src, tcp.sport, ip.dst, tcp.dport)
+
+    def __init__(self, src, sport, dst, dport):
+        self.src = src
+        self.sport = sport
+        self.dst = dst
+        self.dport = dport
+
+    def inverse(self):
+        return self.__class__(self.dst, self.dport, self.src, self.sport)
+
+    def __hash__(self):
+        return hash((self.src, self.sport, self.dst, self.dport))
+
+    def __eq__(self, other):
+        return all((
+            isinstance(other, self.__class__),
+            self.src == other.src,
+            self.sport == other.sport,
+            self.dst == other.dst,
+            self.dport == other.dport
+        ))
+
+class TcpFilter:
     """
-    TcpFilterWrapper wraps a packet filter and adjusts seq and ack numbers to account for altered data lengths
+    TcpFilter wraps a packet filter and adjusts seq and ack numbers to account for altered data lengths
     The wrapped filter should not change the seq or ack number, as they wil be reset
     The wrapped filter may drop a packet by returning None in which case nothing will be forwarded
     """
-    def __init__(self, filter):
-        self.filter = filter
+    def __init__(self, filter=None):
+        if filter is not None:
+            self.filter = filter
         self.offsets = {}
-
-    class FlowKey:
-        @classmethod
-        def frompkt(cls, pkt):
-            ip, tcp = pkt[scapy.IP], pkt[scapy.TCP]
-            return cls(ip.src, tcp.sport, ip.dst, tcp.dport)
-
-        def __init__(self, src, sport, dst, dport):
-            self.src = src
-            self.sport = sport
-            self.dst = dst
-            self.dport = dport
-
-        def inverse(self):
-            return self.__class__(self.dst, self.dport, self.src, self.sport)
-
-        def __hash__(self):
-            return hash((self.src, self.sport, self.dst, self.dport))
-
-        def __eq__(self, other):
-            return all((
-                isinstance(other, self.__class__),
-                self.src == other.src,
-                self.sport == other.sport,
-                self.dst == other.dst,
-                self.dport == other.dport
-            ))
 
     class Offset:
         def __init__(self):
@@ -349,11 +358,15 @@ class TcpFilterWrapper:
             else:
                 self.list.insert(0, new)
 
+    def filter(self, pkt):
+        """filter should be overriden if TcpFilter is subclassed"""
+        return pkt
+
     def __call__(self, pkt):
         if all(layer in pkt for layer in (scapy.Ether, scapy.IP, scapy.TCP)):
             seq, ack = pkt[scapy.TCP].seq, pkt[scapy.TCP].ack
 
-            key = self.FlowKey.frompkt(pkt)
+            key = TcpFlowKey.frompkt(pkt)
             if pkt[scapy.TCP].flags & TcpFlags.SYN or key not in self.offsets:
                 self.offsets[key] = self.Offset()
             offset = self.offsets[key]
@@ -383,4 +396,4 @@ class TcpFilterWrapper:
             return pkt
 
 def tcpfilter(filter):
-    return TcpFilterWrapper(filter)
+    return TcpFilter(filter)
