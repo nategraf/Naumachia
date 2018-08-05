@@ -6,6 +6,7 @@ from naumdb import DB, Address
 from workers import Listener, ClusterWorker, VlanWorker, VethWorker
 import logging
 import os
+import sys
 
 listeners=[]
 
@@ -14,7 +15,7 @@ def stop_handler(signum, frame):
     for listener in listeners:
         listener.stop()
 
-    system.exit(0)
+    sys.exit(0)
 
 def get_env():
     env = {}
