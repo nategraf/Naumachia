@@ -62,30 +62,38 @@ def load_strategy(challenge):
             raise ValueError("No strategy for challenge {:s}".format(challenge))
     return random.choice(strats)
 
+# Because scapy's main loop unconditionally catches SystemExit and silently ignores it ಠ_ಠ
+class _SystemExit(Exception):
+    def __init__(self, code):
+        self.code = code
+
 # Will raise SystemExit to allow cleanup code to run
 def stop_handler(signum, frame):
     logger.info("Shutting down...")
-    sys.exit(0)
+    raise _SystemExit(0)
 
 if __name__ == "__main__":
-    # Open the connection to redis
-    Db.redis = redis.Redis(host=REDIS_ADDR, port=REDIS_PORT)
-    signal.signal(signal.SIGINT, stop_handler)
-    signal.signal(signal.SIGTERM, stop_handler)
+    try:
+        # Open the connection to redis
+        Db.redis = redis.Redis(host=REDIS_ADDR, port=REDIS_PORT)
+        signal.signal(signal.SIGINT, stop_handler)
+        signal.signal(signal.SIGTERM, stop_handler)
 
-    while True:
-        chaldb = Db.challenges.srandmember()
+        while True:
+            chaldb = Db.challenges.srandmember()
 
-        # Wait for the loader to prepare the challenge
-        while not (chaldb.exists() and chaldb.ready):
-            logger.info("Waiting for configurations to be ready for %s", chaldb.id)
-            time.sleep(3)
+            # Wait for the loader to prepare the challenge
+            while not (chaldb.exists() and chaldb.ready):
+                logger.info("Waiting for configurations to be ready for %s", chaldb.id)
+                time.sleep(3)
 
-        # Get the config and strategy
-        config = load_config(chaldb.id)
-        try:
-            strat = load_strategy(chaldb.id)
-            logging.info("Attempting to solve %s with %s strategy and %s config", chaldb.id, strat.name, os.path.basename(config))
-            Runner(config).execute(strat)
-        finally:
-            os.remove(config)
+            # Get the config and strategy
+            config = load_config(chaldb.id)
+            try:
+                strat = load_strategy(chaldb.id)
+                logging.info("Attempting to solve %s with %s strategy and %s config", chaldb.id, strat.name, os.path.basename(config))
+                Runner(config).execute(strat)
+            finally:
+                os.remove(config)
+    except _SystemExit as e:
+        raise SystemExit(e.code) from e
