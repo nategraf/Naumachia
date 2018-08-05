@@ -1,3 +1,4 @@
 trol==0.2.2
 scapy==2.4.0
 redis==2.10.6
+pyjwt==1.6.1

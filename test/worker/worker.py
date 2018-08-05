@@ -7,6 +7,7 @@ import strategy.middle
 import strategy.letter
 import strategy.scraps
 import strategy.piggies
+import strategy.recipe
 import logging
 import os
 import random
@@ -36,6 +37,7 @@ strategies = [
     strategy.scraps.Strategy(),
     strategy.letter.Strategy(),
     strategy.piggies.Strategy(),
+    strategy.recipe.Strategy(),
 ]
 
 def load_config(challenge):
