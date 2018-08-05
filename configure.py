@@ -24,7 +24,8 @@ defaults = {
     'challenges': {
         '*': {
             'port': 1194,
-            'files': []
+            'files': [],
+            'openvpn_management_port': None
         }
     },
     'registrar': {

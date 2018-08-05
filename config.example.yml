@@ -43,3 +43,5 @@ challenges:
         # [default: {domain}.{challenge name}] The commonname used for the OpenVPN's certificates
         # This should be the domain name or ip that directs to this challenge
         commonname: foo.bar.mydomain.net
+        # [default: None] If set, the OpenVPN management interface will be opened on localhost and the given port
+        openvpn_management_port: null

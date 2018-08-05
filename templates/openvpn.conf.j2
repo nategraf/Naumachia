@@ -33,9 +33,11 @@ user nobody
 group nogroup
 comp-lzo
 
+{% if chal.openvpn_management_port -%}
 ### Open the management interface
 # This interface should never be exposed beyond localhost
-management 127.0.0.1 7000
+management 127.0.0.1 {{ chal.openvpn_management_port }}
+{% endif -%}
 
 # Inform Windows machines that they should renew DHCP on connect
 push dhcp-renew
