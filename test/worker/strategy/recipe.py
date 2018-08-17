@@ -47,7 +47,7 @@ class Strategy(strategy.Strategy):
                         pass
             return pkt
 
-    def execute(self, iface, flagpattern, canceltoken=None):
+    def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
         mitm = capture.ArpMitmModule(filter=self.AuthenticationFilter())
         sniffer.register(

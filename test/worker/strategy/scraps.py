@@ -102,7 +102,7 @@ class Strategy(strategy.Strategy):
                         self._thread = threading.Thread(target=self.intercept)
                         self._thread.start()
 
-    def execute(self, iface, flagpattern, canceltoken=None):
+    def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
         interceptor = self.ReverseShellCatcherModule(flagpattern)
         sniffer.register(

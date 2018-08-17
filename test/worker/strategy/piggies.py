@@ -51,7 +51,7 @@ class Strategy(strategy.Strategy):
                     raw.load = b'cat .ctf_flag\n'
         return pkt
 
-    def execute(self, iface, flagpattern, canceltoken=None):
+    def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         sniffer = capture.Sniffer(iface=iface)
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(

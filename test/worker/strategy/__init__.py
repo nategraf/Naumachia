@@ -5,7 +5,7 @@ import threading
 class Strategy(abc.ABC):
     """Abstract class which an automated solution strategy should implement"""
     @abc.abstractmethod
-    def execute(self, iface, flagpattern, canceltoken=None):
+    def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         """Execute the strategy and return the flag or None if the strategy aborts"""
         pass
 

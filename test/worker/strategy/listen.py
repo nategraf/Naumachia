@@ -40,7 +40,7 @@ class Strategy(strategy.Strategy):
                     self.flag = m.group(0)
                     self.sniffer.stop()
 
-    def execute(self, iface, flagpattern, canceltoken=None):
+    def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
         sniffer = capture.Sniffer(iface=iface, filter='udp')
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(analyser)
