@@ -12,7 +12,7 @@ If you are interested in using or contributing to this project let me (nategraf)
 The inspiration for this project comes from my love of networking and especially network security. I wanted a platform to write and play challenges where everything was in-bounds including ARP spoofing, VLAN hopping (WIP), DNS poisoning, SNMP attacks as well as destructive attacks like dropping database tables and installing backdoors without interferring with other users. Naumachia is a system I came up with to do just that.
 
 Naumachia provides:
-* Orchatration or "arbitrary" networks and hosts for challenges
+* Orchastration of "arbitrary" networks and hosts for challenges
 * Isolation of teams within dedicated challenge instances
 * "Full" ethernet access to the challenge network
 
@@ -22,31 +22,32 @@ Access to a Naumachia-hosted challenge is achieved through an OpenVPN tunnel cre
 
 ![Naumachia architecture diagram](naumachia-architecture.svg)
 
-Challenges are specified through Docker Compose config files (i.e. `docker-compose.yml`). This allows the challenge developer to design against a well-documented fully-featured orchatration engine for conatainers and bridged networks. Additional providers including Vagrant, and GENI and currently in the works.
+Challenges are specified through [Docker Compose config files](https://docs.docker.com/compose/compose-file/) (`docker-compose.yml`). Additional providers including Vagrant, and GENI and currently in the works.
 
 ## Deployment
 
 #### Initial Setup
-1. Install [Docker](https://docs.docker.com/engine/installation/) and [Docker Compose](https://docs.docker.com/compose/install/)
-2. Clone Naumachia onto a Linux server (developed and tested with Ubuntu 16.04)
-3. Install requirements.txt for Python3 (i.e. `pip3 install -r requirements.txt`)
+1. Obtain a Linux server (tested on Ubuntu 16.04). This can be, for example, a VM from for favorite IaaS provider (e.g. AWS, GCP, Digital Ocean..... Azure)
+2. Install [Docker](https://docs.docker.com/engine/installation/) and [Docker Compose](https://docs.docker.com/compose/install/)
+3. Clone Naumachia source from here (https://github.com/nategraf/Naumachia.git)
+4. Install requirements.txt for Python3 (`pip3 install -r requirements.txt`)
 
 #### Create a Challenge
-1. Write a [`docker-compose.yml` template](https://docs.docker.com/compose/compose-file/) and put it and any associated files in directory within the `challenges` directory. See `challenges/example` for some guidance
-2. Modify `config.yml` to include your challenge
-3. Run `configure.py` to generate the `docker-compose.yml` file from a Jinja2 template, OpenVPN config files, and PKI
+1. Write a [`docker-compose.yml` template](https://docs.docker.com/compose/compose-file/) and put it and any associated files in directory within the `challenges` directory. Check out [the example challenge](https://github.com/nategraf/Naumachia-challenges/tree/master/example) as a starting point.
+2. Modify `config.yml` to include your challenge. If you don't yet have a config.yml, checkout [`config.example.yml`](https://github.com/nategraf/Naumachia/blob/master/config.example.yml) for guidance.
+3. Run `configure.py` to generate the `docker-compose.yml` file from a Jinja2 template, OpenVPN config files, and PKI.
 
 WARNING: When writing the compose file, do not use bind volumes (i.e. mount local directories to the container). It will not mount properly when started from the cluster-manager which handles creating and stopping challenge instances. No workaround is provided as it is the eventual intention to move toward a scalable model when you cannot control (or care about) where your challenges are deployed. See [moby/moby#28124](https://github.com/moby/moby/issues/28124) for technical discussion of the underlying reason
 
 #### Distriute Access Credentials
 In order to log into the VPN tunnel and access Naumachia a client needs the correct configuration, and a registered certificate. These two are bundled in an OpenVPN client config file.
 
-To generate a client config for your challenge either:
+To generate a client config (with embedded certificates) for your challenge either:
 * Use the registrar CLI
-  * Ex: `./registrar/registrar.py mitm add alice` will create certs for Alice and `./registrar/registar.py mitm get alice` with output the configuration needed for Alice to connect to the 'MITM' challenge
+  * Ex: `./registrar-cli mitm add alice` will create certs for Alice and `./registrar-cli mitm get alice` with output the configuration needed for Alice to connect to the 'MITM' challenge
 * Use the registrar server
   * Add `registrar: {}` or a non-default registrar configration to the `config.yml` file.
-  * Secure your server by ensuring it cannot be accessed by the public or enabling TLS client verification, which is described in `config.example.yml`.
+  * Secure your server by ensuring it cannot be accessed by the public or enabling TLS client verification, which is described in [`config.example.yml`](https://github.com/nategraf/Naumachia/blob/master/config.example.yml).
     * WARNING: If left unsecure, the registrar server can be used to issue a trivial DoS attack or worse against your Naumachia installation.
   * Issue REST API calls to registrar server to manage certificates and retrieve configuration files
     * `/<chal>/list?cn=<cn>` (cn optional) : List all registered certificates or certificates for a specific cn
@@ -56,7 +57,7 @@ To generate a client config for your challenge either:
     * `/<chal>/get?cn=<cn>` : Get the OpenVPN configuration file for the user with specified common name (cn)
 
 #### Run it!
-To run Naumachia simply bring up the environment with the [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up -d`)
+To run Naumachia simply bring up the environment with the [Docker Compose CLI](https://docs.docker.com/compose/reference/overview/) (e.g. `docker-compose up`)
 
 #### On Each Server Reboot
 For lack of a better method there are two steps that will need to be completed on initial installation and every time Naumachia will be run after reboot. It is my intention to eliminate the need for these steps as development continues.
@@ -65,11 +66,11 @@ For lack of a better method there are two steps that will need to be completed o
 
 ## How to Create a Challenge
 
-Challenges in Naumachia are defined by a docker-compose.yml file and the resources it launches
+Challenges in Naumachia are defined by a `docker-compose.yml` file and the resources it launches
 
-Consider the example provided as [challenges/example/docker-compose.yml](https://github.com/nategraf/Naumachia/blob/master/challenges/example/docker-compose.yml)
+Consider the example provided as [example/docker-compose.yml](https://github.com/nategraf/Naumachia/blob/master/challenges/example/docker-compose.yml)
 
-For examples of problems deployed in past CTFs go to the [challenges repo](https://github.com/nategraf/Naumachia-challenges)
+For examples of problems deployed in past CTFs go to the [Naumachia-challenges repo](https://github.com/nategraf/Naumachia-challenges)
 
 ```yaml
 version: '2.1'
@@ -113,26 +114,26 @@ This example defines a challenge which will feature two containers networked tog
 
 The code defining Alice's behavior is in the folder [./alice](https://github.com/nategraf/Naumachia/tree/master/challenges/example/alice) where you will find a Dockerfile defining the containers properties, and a python script which will be run as defined in the Dockerfile (This python script send a message to Bob "asking" if she has the right flag repeatedly)
 
-Similarly Bob's definition is in [./bob](https://github.com/nategraf/Naumachia/tree/master/challenges/example/bob) which is a simple server listening for the flag Alice sends and responding yes or no if it is correct
+Similarly Bob's definition is in [./bob](https://github.com/nategraf/Naumachia-challenges/tree/master/example/alice) which is a simple server listening for the flag Alice sends and responding yes or no to the correctness of the flag.
 
 The user will log in to the VPN tunnel with a config provided by the registrar, and execute an attack to intercept the traffic and obtain the flag
 
-## Connection Instructions
+## Client Connection Instructions
 
 Clients can use any OS supported by OpenVPN, although Linux is recommended for it's large number of hacking tools
 
 To connect each user will need to:
-0. Install OpenVPN
+1. Install OpenVPN
   * Can be found on most package managers (e.g. apt, brew, choco) or [downloaded](https://openvpn.net/index.php/open-source/downloads.html)
   * Ensure the TAP driver is installed
-1. Obtain a configuration file with certificates for the challenge they want to connect from the host
-2. Launch openvpn with the correct configuration
+2. Obtain a configuration file with certificates for the challenge they want to connect from the host
+3. Launch openvpn with the correct configuration
   * CLI: `openvpn --config`
   * Windows GUI: Place the config file in `%HOMEPATH%\OpenVPN\config` and right-click the VPN icon on the status bar, then select the config you want
 
 If using the CLI on Linux, or MacOS you may still need to more steps
-3. Bring up the new TAP network interface
+4. Bring up the new TAP network interface
   * Ex: `ip link set tap0 up`
-4. Obtain an IP address by DHCP (if DHCP is enabled for the challenge)
+5. Obtain an IP address by DHCP (if DHCP is enabled for the challenge)
   * Ex: `udhcpc -i tap0`
   * Ex: `dhclient tap0`
