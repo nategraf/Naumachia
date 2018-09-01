@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from os import path, makedirs, chmod
+from os import path, makedirs, chmod, listdir
 from lazycert import LazyCert
 import io
 import jinja2
@@ -12,9 +12,12 @@ import requests
 import tarfile
 import logging
 import tempfile
+import re
+import sys
 
 logger = logging.getLogger(__name__)
 script_dir = path.dirname(path.realpath(__file__))
+tools_dir = path.abspath(path.join(script_dir, 'tools'))
 
 wildcard = '*'
 defaults = {
@@ -37,22 +40,64 @@ defaults = {
     }
 }
 
-EASYRSA_URL='https://github.com/OpenVPN/easy-rsa/releases/download/v3.0.4/EasyRSA-3.0.4.tgz'
-EASYRSA_DIR='EasyRSA-3.0.4'
-EASYRSA_DEFAULT=path.abspath(path.join(script_dir, 'tools', EASYRSA_DIR, 'easyrsa'))
+GITHUB_RELEASE_API = 'https://api.github.com/repos/OpenVPN/easy-rsa/releases/{:s}'
+EASYRSA_DEFAULT=None
+EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-|v)((?:\d+\.)*\d+)')
 REGISTRAR_CERT_DIR=path
 
-def install_easyrsa():
-    install_dir = path.abspath(path.join(script_dir, 'tools'))
+def easyrsa_release(tag=None, timeout=5):
+    """
+    Get the EasyRSA release information from github at a tag or latest if tag is None
+    Returns a dictionary parsed from the GitHub release API (https://developer.github.com/v3/repos/releases/)
+    """
+    name = 'latest' if tag is None else 'tags/'+tag
+    with requests.get(GITHUB_RELEASE_API.format(name), timeout=timeout) as resp:
+        resp.raise_for_status()
+        return resp.json()
 
-    if not path.isdir(install_dir):
-        makedirs(install_dir)
+def easyrsa_installations(dir):
+    """Get the EasyRSA versions installed. Returns (version tag, path) tuples for each installed version"""
+    subdirs = (subdir for subdir in (path.join(dir, name) for name in listdir(dir)) if path.isdir(subdir))
+    for subdir in subdirs:
+        m = EASYRSA_VERSION_PATTERN.fullmatch(path.basename(subdir))
+        if m:
+            yield (m.group(1), subdir)
 
-    with requests.get(EASYRSA_URL, stream=True) as resp:
+def extract_release(release, dest):
+    """Given a release object from the Github API, download and extract the .tgz archive"""
+    for asset in release['assets']:
+        if asset['name'].endswith('.tgz'):
+            download_url = asset['browser_download_url']
+            break
+    else:
+        raise ValueError('no .tgz asset in release')
+
+    with requests.get(download_url, stream=True) as resp:
+        resp.raise_for_status()
         tarball = tarfile.open(fileobj=io.BytesIO(resp.content), mode='r:gz')
-        tarball.extractall(path=install_dir)
+        tarball.extractall(path=dest)
 
-    logger.info("Installed easyrsa to '{}' from '{}'".format(install_dir, EASYRSA_URL))
+def obtain_easyrsa(update=True):
+    """Returns the path to the default EasyRSA binary after checking for, and possibly installing, the latest version"""
+    installed = tuple(easyrsa_installations(tools_dir))
+    latest_install = max(installed) if installed else None
+
+    if update:
+        try:
+            latest_release = easyrsa_release()
+            latest_version = EASYRSA_VERSION_PATTERN.fullmatch(latest_release['tag_name']).group(1)
+
+            if latest_install is None or latest_version > latest_install[0]:
+                extract_release(latest_release, tools_dir)
+                latest_install = max(easyrsa_installations(tools_dir))
+                logger.info('Updated EasyRSA to %s', latest_version)
+        except OSError:
+            logger.warn('Failed to update EasyRSA')
+
+    if latest_install is not None:
+        return path.join(latest_install[1], 'easyrsa')
+    else:
+        return None
 
 def apply_defaults(config, defaults):
     # Expand the wildcard
@@ -97,7 +142,7 @@ def parse_args():
     parser.add_argument('--registrar_certs', metavar="PATH", default=path.join(script_dir, 'registrar/certs'), help='path to the configuration templates')
     parser.add_argument('--compose', metavar="PATH", default=path.join(script_dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
     parser.add_argument('--ovpn_configs', metavar="PATH", default=path.join(script_dir, 'openvpn', 'config'), help='path to openvpn configurations')
-    parser.add_argument('--easyrsa', metavar="PATH", default=EASYRSA_DEFAULT, help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
+    parser.add_argument('--easyrsa', metavar="PATH", default=None, help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
 
     return parser.parse_args()
 
@@ -166,11 +211,13 @@ if __name__ == "__main__":
     config = read_config(args.config)
 
     # Ensure easyrsa is installed
-    if not path.exists(args.easyrsa):
-        if args.easyrsa == EASYRSA_DEFAULT:
-            install_easyrsa()
-        else:
-            raise FileNotFoundError(args.easyrsa)
+    if args.easyrsa is None:
+        args.easyrsa = obtain_easyrsa()
+        if args.easyrsa is None:
+            logger.error('Failed to find or install easyrsa')
+            sys.exit(1)
+
+    logger.info('Using easyrsa installation at %s', args.easyrsa)
 
     # Render the docker-compose file
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
