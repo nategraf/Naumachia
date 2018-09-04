@@ -57,11 +57,12 @@ def easyrsa_release(tag=None, timeout=5):
 
 def easyrsa_installations(dir):
     """Get the EasyRSA versions installed. Returns (version tag, path) tuples for each installed version"""
-    subdirs = (subdir for subdir in (path.join(dir, name) for name in listdir(dir)) if path.isdir(subdir))
-    for subdir in subdirs:
-        m = EASYRSA_VERSION_PATTERN.fullmatch(path.basename(subdir))
-        if m:
-            yield (m.group(1), subdir)
+    if path.isdir(dir):
+        subdirs = (subdir for subdir in (path.join(dir, name) for name in listdir(dir)) if path.isdir(subdir))
+        for subdir in subdirs:
+            m = EASYRSA_VERSION_PATTERN.fullmatch(path.basename(subdir))
+            if m:
+                yield (m.group(1), subdir)
 
 def extract_release(release, dest):
     """Given a release object from the Github API, download and extract the .tgz archive"""
@@ -71,6 +72,9 @@ def extract_release(release, dest):
             break
     else:
         raise ValueError('no .tgz asset in release')
+
+    if not path.exists(dest):
+        makedirs(dest)
 
     with requests.get(download_url, stream=True) as resp:
         resp.raise_for_status()
