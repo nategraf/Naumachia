@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-
 import argparse
 import registrar
 import logging
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -12,7 +10,7 @@ def parse_args():
     )
     parser.add_argument('challenge', help="the short name for the challenge")
     parser.add_argument('--openvpn', metavar='PATH', help="path to the directory for openvpn configurations", default=None)
-    parser.add_argument('--easyrsa', metavar='PATH', help="path to the directory containing the easyrsa executable", default=None)
+    parser.add_argument('--easyrsa', metavar='PATH', help="path to the directory containing the easyrsa executable", default=registrar.EASYRSA)
     subparsers = parser.add_subparsers(dest='action', help="what you wish to do with the client config")
 
     parser_add = subparsers.add_parser('add', help="create a set of certificates for a client")

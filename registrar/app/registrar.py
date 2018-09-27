@@ -1,4 +1,4 @@
-from os import path, environ, remove
+from os import path, environ, remove, listdir
 from enum import Enum
 from datetime import datetime
 import logging
@@ -13,12 +13,25 @@ EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
 EASYRSA_NONEXIST_REVOKE_MSG = b'Unable to revoke as the input file is not a valid certificate'
 EASYRSA_NONEXIST_GET_MSG = b'Unable to find'
+EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-|v)((?:\d+\.)*\d+)')
 
-script_dir = path.dirname(__file__)
+script_dir = path.dirname(path.realpath(__file__))
+tools_dir = path.abspath(path.join(script_dir, '../../tools'))
 getclient = path.abspath(path.join(script_dir, "getclient"))
 
+def easyrsa_installation(dir):
+    """Get the latest EasyRSA versions installed. Returns the path for the latest version or None"""
+    latest = ("0.0", None)
+    if path.isdir(dir):
+        subdirs = (subdir for subdir in (path.join(dir, name) for name in listdir(dir)) if path.isdir(subdir))
+        for subdir in subdirs:
+            m = EASYRSA_VERSION_PATTERN.fullmatch(path.basename(subdir))
+            if m:
+                latest = max(latest, (m.group(1), subdir))
+    return latest[1]
+
 OPENVPN_BASE = environ.get("OPENVPN_BASE", path.abspath(path.join(script_dir, '../../openvpn/config')))
-EASYRSA = environ.get("EASYRSA", path.abspath(path.join(script_dir, '../../tools/EasyRSA-3.0.4')))
+EASYRSA = environ.get("EASYRSA") or easyrsa_installation(tools_dir)
 
 class CertificateListing:
     """Representaion of the status of a certificate
