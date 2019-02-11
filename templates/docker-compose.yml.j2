@@ -21,8 +21,6 @@ services:
         extends:
             file: openvpn-compose.yml
             service: openvpn
-        depends_on:
-            - redis
         volumes:
             - ./openvpn/config/{{ name }}:/etc/openvpn
             - ./logs/{{ name }}:/var/log
@@ -78,8 +76,6 @@ services:
 
     manager:
         build: ./manager/build
-        depends_on:
-            - redis
         networks: 
             internal:
         volumes:
