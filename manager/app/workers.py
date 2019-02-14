@@ -1,14 +1,16 @@
+from .db import DB, Address
+from .commands import vlan_if_name, LinkUpCmd, VlanCmd, BrctlCmd, ComposeCmd
 from trol import RedisKeyError
-from naumdb import DB, Address
-from commands import vlan_if_name, IpFlushCmd, LinkUpCmd, VlanCmd, BrctlCmd, ComposeCmd
-import subprocess
-import os
-import threading
 import docker
 import logging
+import os
 import re
+import subprocess
+import threading
 
 dockerc = docker.from_env()
+
+logger = logging.getLogger(__name__)
 
 class Listener(threading.Thread):
     """
@@ -25,10 +27,10 @@ class Listener(threading.Thread):
         self.stop_event = threading.Event()
 
         self.pubsub.psubscribe(channel)
-        logging.info("Listener on %s subscribed", self.channel)
+        logger.info("Listener on %s subscribed", self.channel)
 
     def dispatch(self, item):
-        logging.debug("Recieved event '%s' '%s' '%s'", item['type'], item['channel'], item['data'])
+        logger.debug("Recieved event '%s' '%s' '%s'", item['type'], item['channel'], item['data'])
         if re.match(r'p?message', item['type']):
             channel = item['channel'].decode('utf-8')
             data = item['data'].decode('utf-8')
@@ -41,7 +43,7 @@ class Listener(threading.Thread):
     def run(self):
         for item in self.pubsub.listen():
             if self.stop_event.is_set():
-                logging.info("Listener on %s unsubscribed and finished", self.channel)
+                logger.info("Listener on %s unsubscribed and finished", self.channel)
                 break
             else:
                 self.dispatch(item)
@@ -56,104 +58,101 @@ class ClusterWorker(threading.Thread):
         self.action = action
 
     def ensure_cluster_up(self, user, vpn, cluster, connection):
-        exists = cluster.exists() 
-        if exists and cluster.status == 'up':
-            logging.info("New connection %s to exsiting cluster %s", connection.id, cluster.id)
-        else:
-            if not exists or cluster.status != 'up':
-                logging.info("Starting cluster %s on new connection %s", cluster.id, connection.id)
-            else:
-                logging.info("New cluster %s on new connection %s", cluster.id, connection.id)
+        with cluster.lock:
+            exists = cluster.exists()
+            if cluster.exists() and cluster.status == DB.Cluster.UP:
+                logger.info("New connection %s to exsiting cluster %s", connection.id, cluster.id)
+                return
 
+            logger.info("Starting cluster %s on new connection %s", cluster.id, connection.id)
             try:
                 ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
             except subprocess.CalledProcessError:
-                # Try brining the cluster down first in cae Compose left it in a limbo state
+                # Try brining the cluster down first in case Compose left it in a limbo state
                 ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
                 ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
 
-            cluster.status = 'up'
+            cluster.status = DB.Cluster.UP
             self.bridge_link_if_ready(user, vpn, cluster)
 
     def ensure_cluster_stopped(self, user, vpn, cluster):
-        try:
-            if cluster.status != 'stopped':
-                ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.chal.files).run()
-                logging.info("Stopping cluster %s", cluster.id)
-                cluster.status = 'stopped'
-
+        with cluster.lock:
+            if not cluster.exists():
+                logger.info("No action for user %s with no registered cluster", user.id)
+            elif cluster.status == DB.Cluster.STOPPED:
+                logger.info("No action for already stopped cluster %s", cluster.id)
             else:
-                logging.info("No action for already stopped cluster %s", cluster.id)
-        except RedisKeyError:
-            logging.info("No action for user %s with no registered cluster", user.id)
+                ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.chal.files).run()
+                logger.info("Stopping cluster %s", cluster.id)
+                cluster.status = DB.Cluster.STOPPED
 
     def ensure_cluster_down(self, user, vpn, cluster):
-        try:
-            # Unlike with up and stop, we don't check what redis thinks here
-            logging.info("Destroying cluster %s", cluster.id)
+        with cluster.lock:
+            if not cluster.exists():
+                logger.info("No action for user %s with no registered cluster", user.id)
+            else:
+                # Unlike with up and stop, we don't check what redis thinks here
+                logger.info("Destroying cluster %s", cluster.id)
 
-            # Set status before executing the command because if is fails we should assume it's down still
-            cluster.status = 'down'
-            vpn.links[user.vlan] = 'up'
-            ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
-        except RedisKeyError:
-            logging.info("No action for user %s with no registered cluster", user.id)
+                # Set status before executing the command because if is fails we should assume it's down still
+                cluster.status = DB.Cluster.DOWN
+                if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
+                    vpn.links[user.vlan] = DB.Vpn.LINK_UP
+                ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
 
     def bridge_link_if_ready(self, user, vpn, cluster):
-            # Bridge in the vlan interface if it is ready to go
+        """Bridge the VLAN interface if it has been created and is in a ready state"""
+        with vpn.lock:
             bridge_id = get_bridge_id(cluster.id)
-            if vpn.links[user.vlan] == 'up':
+            if vpn.links[user.vlan] == DB.Vpn.LINK_UP:
                 vlan_if = vlan_if_name(vpn.veth, user.vlan)
                 BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-                vpn.links[user.vlan] = 'bridged'
-                logging.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
-
-            # Strip the IP address form the bridge to prevent host attacks. 
-            # Hopefully this will be replaced by an option to never give the bridge an ip at all
-            IpFlushCmd(bridge_id).run()
+                vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
+                logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
 
 
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
-            logging.debug("ClusterWorker responding to 'set' on connection '%s' alive status", addr)
+            logger.debug("ClusterWorker responding to 'set' on connection '%s' alive status", addr)
 
             user = connection.user
             vpn = connection.vpn
             cluster = DB.Cluster(user, vpn.chal)
 
             if connection.alive:
-                if user.status == 'active':
+                if user.status == DB.User.ACTIVE:
                     self.ensure_cluster_up(user, vpn, cluster, connection)
                 else:
                     raise ValueError("Invalid state {} for user {}".format(user.status, user.id))
 
             else:
-                if user.status == 'active':
-                    logging.info("Removed connection %s for active user %s", connection.id, user.id)
+                if user.status == DB.User.ACTIVE:
+                    logger.info("Removed connection %s for active user %s", connection.id, user.id)
 
-                if user.status == 'disconnected':
+                if user.status == DB.User.DISCONNECTED:
                     self.ensure_cluster_down(user, vpn, cluster)
 
                 connection.delete()
-        else:
-            logging.debug("ClusterWorker not responding to '%s' event", self.action)
 
-def ensure_veth_up(vpn, verbose=False):
+        else:
+            logger.debug("ClusterWorker not responding to '%s' event", self.action)
+
+def ensure_veth_up(vpn):
     """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
     
     Args:
         vpn (obj:``DB.Vpn``): The VPN tunnel which needs to have it's veth ensured
     """
-    if vpn.veth_state == 'down':
-        LinkUpCmd(vpn.veth).run()
-        vpn.veth_state = 'up'
-        logging.info("Set veth %s on vpn tunnel %s up", vpn.veth, vpn.id)
+    with vpn.lock:
+        if vpn.veth_state == DB.Vpn.DOWN:
+            LinkUpCmd(vpn.veth).run()
+            vpn.veth_state = DB.Vpn.UP
+            logger.info("Set veth %s on vpn tunnel %s up", vpn.veth, vpn.id)
 
-    else:
-        if verbose:
-            logging.info("veth %s on vpn tunnel %s already up.", vpn.veth, vpn.id)
+        else:
+            logger.debug("veth %s on vpn tunnel %s already up.", vpn.veth, vpn.id)
 
 class VethWorker(threading.Thread):
     """
@@ -198,38 +197,40 @@ class VlanWorker(threading.Thread):
         self.action = action
 
     def bring_up_link(self, vpn, user):
-        try:
-            VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
-            logging.info("New vlan link on vpn %s for vlan %d", vpn.id, user.vlan)
-        except subprocess.CalledProcessError as e:
-            if e.returncode != 2:
-                raise
+        with vpn.lock:
+            try:
+                VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
+                logger.info("New vlan link on vpn %s for vlan %d", vpn.id, user.vlan)
+            except subprocess.CalledProcessError as e:
+                if e.returncode != 2:
+                    raise
 
-            # Raised a CalledProcessError is the link doesn't exist
-            VlanCmd(VlanCmd.SHOW, veth, vlan).run()
-            logging.warn("Unrecorded exsting link %s:%d", vpn_id, vlan)
+                # Raised a CalledProcessError is the link doesn't exist
+                VlanCmd(VlanCmd.SHOW, veth, vlan).run()
+                logger.warn("Unrecorded exsting link %s:%d", vpn_id, vlan)
 
-        vpn.links[user.vlan] = 'up'
+            vpn.links[user.vlan] = DB.Vpn.LINK_UP
 
     def bridge_cluster(self, vpn, user):
         cluster = DB.Cluster(user, vpn.chal)
         vlan_if = vlan_if_name(vpn.veth, user.vlan)
 
-        if cluster.exists() and cluster.status == 'up':
-            bridge_id = get_bridge_id(cluster.id)
-            BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
-            vpn.links[user.vlan] = 'bridged'
-            logging.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
+        with cluster.lock:
+            if cluster.exists() and cluster.status == DB.Cluster.UP:
+                bridge_id = get_bridge_id(cluster.id)
+                BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
+                vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
+                logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
 
-        else:
-            logging.info(
-                    "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
+            else:
+                logger.info(
+                        "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
 
 
     def run(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
-            logging.debug("VlanWorker responding to 'set' on connection '%s' alive status", addr)
+            logger.debug("VlanWorker responding to 'set' on connection '%s' alive status", addr)
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
@@ -242,8 +243,8 @@ class VlanWorker(threading.Thread):
                 vlan_if = vlan_if_name(vpn.veth, user.vlan)
 
                 link_status = vpn.links[user.vlan]
-                if link_status == 'bridged':
-                    logging.info("New connection %s traversing existing vlan link %s", connection.id, vlan_if)
+                if link_status == DB.Vpn.LINK_BRIDGED:
+                    logger.info("New connection %s traversing existing vlan link %s", connection.id, vlan_if)
 
                 else:
                     if not link_status or link_status == 'down':
@@ -252,7 +253,7 @@ class VlanWorker(threading.Thread):
                     self.bridge_cluster(vpn, user)
 
         else:
-            logging.debug("VlanWorker not responding to '%s' event", self.action)
+            logger.debug("VlanWorker not responding to '%s' event", self.action)
 
 def get_bridge_id(cluster_id):
     cluster_id = ''.join(c for c in cluster_id if c.isalnum())

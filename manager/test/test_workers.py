@@ -1,11 +1,11 @@
-import unittest
-from functools import wraps
-import weakref
-from os import path
-from redis import StrictRedis
 from .common import ensure_redis_is_online
-from app.naumdb import DB, Address
+from app.db import DB, Address
+from functools import wraps
+from os import path
+from redis import Redis
 import app.manager as sut
+import unittest
+import weakref
 
 test_dir = path.dirname(path.realpath(__file__))
 sut.CHALLENGE_FODLER =  test_dir
@@ -87,24 +87,19 @@ class OnlineWorkerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.container_token = ensure_redis_is_online()
-        cls.redis = StrictRedis(host='localhost', port=6379, db=0)
+        cls.redis = Redis(host='localhost', port=6379, db=0)
         DB.redis = cls.redis
 
     def setUp(self):
         self.redis.flushall()
 
-        self.vpn = DB.Vpn('0123456789ab')
+        self.vpn = DB.Vpn('abc')
         self.vpn.update(
             veth = "fakeveth",
-            veth_state = "down"
+            veth_state = "down",
+            chal = DB.Challenge('chalfoo')
         )
-        self.vpn.files.extend(["test-compose.yml"])
-
-        self.vpn = DB.Vpn('0123456789ab')
-        self.vpn.update(
-            veth = "fakeveth",
-            veth_state = "down"
-        )
+        self.vpn.chal.files.extend(["test-compose.yml"])
 
         self.user = DB.User('auserid')
         self.user.update(
@@ -126,7 +121,6 @@ class OnlineWorkerTests(unittest.TestCase):
 
         self.user.connections.add(self.connection)
         self.vpn.links[4000] = 'bridged'
-        
 
     def test_veth_worker_run(self):
         with Shim(sut) as manager:

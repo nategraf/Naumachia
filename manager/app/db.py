@@ -1,4 +1,4 @@
-from trol import Database, Model, Property, Set, Hash, List, serializers, deserializers
+from trol import Database, Model, Property, Set, Hash, List, Lock, serializers, deserializers
 from base64 import b16encode
 
 class Address:
@@ -7,7 +7,7 @@ class Address:
         self.port = port
 
     def __repr__(self):
-        return "{}!{}".format(self.ip, self.port)
+        return "{}.{}".format(self.ip, self.port)
 
     def __str__(self):
         return self.__repr__()
@@ -18,9 +18,9 @@ class Address:
             string = byts.decode('utf-8')
         else:
             string = byts
-        data = string.split('!')
+        ip, port = string.rsplit('.', 1)
 
-        return Address(data[0], int(data[1]))
+        return Address(ip, int(port))
 
 serializers[Address] = Address.__repr__
 deserializers[Address] = Address.deserialize
@@ -39,28 +39,41 @@ class DB(Database):
         vpn = Property(typ=Model)
 
     class User(Model):
+        DISCONNECTED = 'disconnected'
+        ACTIVE = 'active'
         def __init__(self, id):
             self.id = id
 
         vlan = Property(typ=int)
         cn = Property(typ=str)
-        status = Property()
+        status = Property(typ=str)
         connections = Set(typ=Model)
 
     class Cluster(Model):
-        def __init__(self, user, chal):
-            self.id = '{}!{}'.format(user.id, chal.id)
+        UP = 'up'
+        STOPPED = 'stopped'
+        DOWN = 'down'
 
+        def __init__(self, user, chal):
+            self.id = '{}@{}'.format(user.id, chal.id)
+
+        lock = Lock()
         status = Property(typ=str)
 
     class Vpn(Model):
+        LINK_UP = 'up'
+        LINK_BRIDGED = 'bridged'
+        VETH_UP = 'up'
+        VETH_DOWN = 'down'
+
         def __init__(self, id):
             self.id = id
 
+        lock = Lock()
         veth = Property(typ=str)
         veth_state = Property()
-        links = Hash()
         chal = Property(typ=Model)
+        links = Hash(typ=str)
 
     class Challenge(Model):
         def __init__(self, name):

@@ -3,8 +3,8 @@
 Registers this OpenVPN conatainer with the Redis DB so the cluster manager can find it and the veth which is speaks through
 """
 
+from .db import DB
 from common import get_env
-from naumdb import DB
 import json
 import logging
 
@@ -18,10 +18,9 @@ def register_vpn():
         chal.files.extend(env['NAUM_FILES'])
 
     vpn = DB.Vpn(env['HOSTNAME'])
-
     vpn.update(
         veth = env['NAUM_VETHHOST'],
-        veth_state = 'down',
+        veth_state = DB.Vpn.VETH_DOWN,
         chal = chal
     )
 

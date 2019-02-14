@@ -5,10 +5,10 @@ It is called under the OpenVPN --client-connect option
 When called this script adds the new user to the DB and chooses a vlan for this user
 """
 
+from .db import DB, Address
+from argparse import ArgumentParser
 from common import get_env
 from register_vpn import register_vpn
-from argparse import ArgumentParser
-from naumdb import DB, Address
 import base64
 import logging
 import random
@@ -39,7 +39,7 @@ def create_user(vpn, env):
     user.update(
         vlan = vlan,
         cn = env['COMMON_NAME'],
-        status = 'active'
+        status = DB.User.ACTIVE
     )
 
     DB.users[env['COMMON_NAME']] = user
@@ -56,8 +56,7 @@ def client_connect(ccname):
 
     user = DB.users[env['COMMON_NAME']]
     if user:
-        user.status = 'active'
-        
+        user.status = DB.User.ACTIVE
     else:
         user = create_user(vpn, env)
 

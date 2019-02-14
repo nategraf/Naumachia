@@ -3,7 +3,9 @@ from os import path
 import logging
 import subprocess
 
-CHALLENGE_FOLDER = './challenges'
+logger = logging.getLogger(__name__)
+
+CHALLENGE_FOLDER = '/challenges'
 
 def vlan_if_name(interface, vlan):
     # Create the name for the VLAN subinterface.
@@ -18,7 +20,7 @@ class Cmd:
         return "<{0} '{1}'>".format(self.__class__.__name__, " ".join(self.args))
 
     def run(self, **kwargs):
-        logging.debug("Launching %s", self)
+        logger.debug("Launching %s", self)
         try:
             subprocess.run(
                 self.args,
@@ -29,29 +31,19 @@ class Cmd:
             )
         except subprocess.CalledProcessError as e:
             if e.output:
-                logging.error("%s failed with exit code %d\nCommand: %s\n%s",
+                logger.error("%s failed with exit code %d\nCommand: %s\n%s",
                     self.__class__.__name__,
                     e.returncode,
                     " ".join(self.args),
                     e.output.decode('utf-8')
                 )
             else:
-                logging.error("%s failed with exit code %d\nCommand: %s",
+                logger.error("%s failed with exit code %d\nCommand: %s",
                     self.__class__.__name__,
                     e.returncode,
                     " ".join(self.args)
                 )
             raise
-
-class IpFlushCmd(Cmd):
-    """
-    Kicks off and monitors an 'ip addr flush dev *' to remove all IP addresses from an interface
-    """
-    def __init__(self, interface):
-        self.interface = interface
-
-        self.args = ['ip', 'netns', 'exec', 'host']
-        self.args.extend(('ip', 'addr', 'flush', interface))
 
 class LinkUpCmd(Cmd):
     """

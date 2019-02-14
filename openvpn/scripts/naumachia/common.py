@@ -3,10 +3,10 @@
 This is a set of common functions used by each naumachia VPN script
 """
 
-import yaml
-import os
+from .db import DB
 from redis import Redis
-from naumdb import DB
+import os
+import yaml
 
 ENVFILE = '/env.yaml'
 

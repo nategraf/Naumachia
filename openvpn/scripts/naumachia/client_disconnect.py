@@ -5,8 +5,8 @@ It is called under the OpenVPN --client-disconnect option
 When called this script will clean up the DB entries made by client-connect
 """
 
+from .db import DB, Address
 from common import get_env
-from naumdb import DB, Address
 from trol import RedisKeyError
 import logging
 
@@ -20,7 +20,7 @@ def client_disconnect():
     try:
         connection.user.connections.remove(connection) # That's a mouthful
         if len(connection.user.connections) == 0:
-            connection.user.status = 'disconnected'
+            connection.user.status = DB.User.DISCONNECTED
         connection.alive = False
     except RedisKeyError:
         logging.warn("Connection {} removed from Redis prior to disconnect".format(client))

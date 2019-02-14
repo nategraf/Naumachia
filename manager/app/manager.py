@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 
-from signal import signal, SIGTERM, SIGINT
+from .db import DB, Address
+from .workers import Listener, ClusterWorker, VlanWorker, VethWorker
 from redis import Redis
-from naumdb import DB, Address
-from workers import Listener, ClusterWorker, VlanWorker, VethWorker
+from signal import signal, SIGTERM, SIGINT
 import logging
 import os
 import sys
 
+logger = logging.getLogger(__name__)
+
 listeners=[]
 
 def stop_handler(signum, frame):
-    logging.info("Shutting down...")
+    logger.info("Shutting down...")
     for listener in listeners:
         listener.stop()
 
@@ -29,18 +31,18 @@ def get_env():
 
     return env
 
-if __name__ == "__main__":
+def main():
     env = get_env()
 
-    # Init logging
+    # Init logger
     if env['LOG_LEVEL'] is not None:
-        loglevel = getattr(logging, env['LOG_LEVEL'].upper(), None)
+        loglevel = getattr(logger, env['LOG_LEVEL'].upper(), None)
         if not isinstance(loglevel, int):
                 raise ValueError('Invalid log level: {}'.format(env['LOG_LEVEL']))
     else:
-        loglevel = logging.INFO
+        loglevel = logger.INFO
 
-    logging.basicConfig(
+    logger.basicConfig(
         format="[{asctime:s}] {levelname:s}: {message:s}",
         level=loglevel,
         filename=env['LOG_FILE'],
@@ -63,3 +65,6 @@ if __name__ == "__main__":
 
     for listener in listeners:
         listener.start()
+
+if __name__ == "__main__":
+    main()
