@@ -5,9 +5,9 @@ It is called under the OpenVPN --client-connect option
 When called this script adds the new user to the DB and chooses a vlan for this user
 """
 
-from .db import DB, Address
 from argparse import ArgumentParser
 from common import get_env
+from db import DB, Address
 from register_vpn import register_vpn
 import base64
 import logging
@@ -25,19 +25,27 @@ def parse_args():
 
     return parser.parse_args()
 
-def create_user(vpn, env):
-    existing_vlans = vpn.links.keys()
-    vlan = None
-    while not vlan:
+def allocate_vlan():
+    existing = DB.vlans.members
+    for _ in range(10000):
         vlan = random.randint(10,4000)
-        if vlan in existing_vlans:
-            vlan = None
+        if vlan in existing:
+            continue
 
+        # Add the vlan to the set, starting over if it is not new.
+        if DB.vlans.add(vlan):
+            return vlan
+        else:
+            return allocate_vlan()
+
+    raise ValueError('timeout attempting to allocate a VLAN')
+
+def create_user(vpn, env):
     # Common name must be formatted as if it were a dns name
     user_id = env['COMMON_NAME'].lower()
     user = DB.User(user_id)
     user.update(
-        vlan = vlan,
+        vlan = allocate_vlan(),
         cn = env['COMMON_NAME'],
         status = DB.User.ACTIVE
     )
@@ -72,7 +80,7 @@ def client_connect(ccname):
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=user.vlan, ip=addr.ip, port=addr.port))
 
-    with open(args.ccname, 'w') as ccfile:
+    with open(ccname, 'w') as ccfile:
         ccfile.write(CCTEMPLATE.format(vlan=user.vlan))
 
 if __name__ == "__main__":

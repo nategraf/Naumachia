@@ -57,21 +57,22 @@ class DB(Database):
         def __init__(self, user, chal):
             self.id = '{}@{}'.format(user.id, chal.id)
 
-        lock = Lock()
+        lock = Lock(timeout=60)
         status = Property(typ=str)
 
     class Vpn(Model):
         LINK_UP = 'up'
         LINK_BRIDGED = 'bridged'
+        LINK_DOWN = 'down'
         VETH_UP = 'up'
         VETH_DOWN = 'down'
 
         def __init__(self, id):
             self.id = id
 
-        lock = Lock()
+        lock = Lock(timeout=30)
         veth = Property(typ=str)
-        veth_state = Property()
+        veth_state = Property(typ=str)
         chal = Property(typ=Model)
         links = Hash(typ=str)
 
@@ -83,3 +84,4 @@ class DB(Database):
 
     vpns = Set(typ=Model)
     users = Hash(typ=Model)
+    vlans = Set(typ=int)

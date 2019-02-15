@@ -29,33 +29,62 @@ class Listener(threading.Thread):
         self.pubsub.psubscribe(channel)
         logger.info("Listener on %s subscribed", self.channel)
 
+    def __str__(self):
+        return f"<{self.__class__.__name__} on {self.channel}>"
+
     def dispatch(self, item):
-        logger.debug("Recieved event '%s' '%s' '%s'", item['type'], item['channel'], item['data'])
+        logger.debug("Recieved event %r", item)
         if re.match(r'p?message', item['type']):
             channel = item['channel'].decode('utf-8')
-            data = item['data'].decode('utf-8')
-            self.worker(channel, data).start()
+            action = item['data'].decode('utf-8')
+            self.worker(channel, action).start()
 
     def stop(self):
         self.stop_event.set()
         self.pubsub.punsubscribe()
 
     def run(self):
-        for item in self.pubsub.listen():
-            if self.stop_event.is_set():
-                logger.info("Listener on %s unsubscribed and finished", self.channel)
-                break
-            else:
-                self.dispatch(item)
+        try:
+            for item in self.pubsub.listen():
+                if self.stop_event.is_set():
+                    logger.info("Listener on %s unsubscribed and finished", self.channel)
+                    break
+                else:
+                    self.dispatch(item)
+        except:
+            logger.exception('Exception in %s', self)
 
-class ClusterWorker(threading.Thread):
-    """
-    A worker to handle starting and stopping clusters when a connection spins up or down
+class Worker(threading.Thread):
+    """Thread subclass to for handling pubsub keyspace events
+
+    See `Redis Keyspace Notifications`_ for details on keyspace notifications.
+
+    .. Redis Keyspace Notifications: https://redis.io/topics/notifications
+
+    Attributes:
+        channel (str): source of the pubsub event (e.g. __keyspace@0__:Vpn:302352fa9126:veth)
+        action (str): triggering keyspace event. (e.g. set)
+
     """
     def __init__(self, channel, action):
         threading.Thread.__init__(self)
         self.channel = channel
         self.action = action
+
+    def __str__(self):
+        return f"<{self.__class__.__name__} for {self.action} on {self.channel}>"
+
+    def run(self):
+        logger.debug("%s dispatched with action %r on channel %r", self.__class__.__name__, self.action, self.channel)
+        try:
+            self.work()
+        except:
+            logger.exception('Exception in %s', self)
+
+class ClusterWorker(Worker):
+    """
+    A worker to handle starting and stopping clusters when a connection spins up or down
+    """
 
     def ensure_cluster_up(self, user, vpn, cluster, connection):
         with cluster.lock:
@@ -111,11 +140,10 @@ class ClusterWorker(threading.Thread):
                 logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge_id, cluster.id)
 
 
-    def run(self):
+    def work(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
             connection = DB.Connection(addr)
-            logger.debug("ClusterWorker responding to 'set' on connection '%s' alive status", addr)
 
             user = connection.user
             vpn = connection.vpn
@@ -136,9 +164,6 @@ class ClusterWorker(threading.Thread):
 
                 connection.delete()
 
-        else:
-            logger.debug("ClusterWorker not responding to '%s' event", self.action)
-
 def ensure_veth_up(vpn):
     """Checks if the host-side veth interface for a VPN container is up, and if not brings it up
     
@@ -146,15 +171,15 @@ def ensure_veth_up(vpn):
         vpn (obj:``DB.Vpn``): The VPN tunnel which needs to have it's veth ensured
     """
     with vpn.lock:
-        if vpn.veth_state == DB.Vpn.DOWN:
+        if vpn.veth_state == DB.Vpn.VETH_DOWN:
             LinkUpCmd(vpn.veth).run()
-            vpn.veth_state = DB.Vpn.UP
+            vpn.veth_state = DB.Vpn.VETH_UP
             logger.info("Set veth %s on vpn tunnel %s up", vpn.veth, vpn.id)
 
         else:
             logger.debug("veth %s on vpn tunnel %s already up.", vpn.veth, vpn.id)
 
-class VethWorker(threading.Thread):
+class VethWorker(Worker):
     """
     A worker to bring the host side interface online when a vpn tunnel comes up
 
@@ -173,12 +198,12 @@ class VethWorker(threading.Thread):
         self.channel = channel
         self.action = action
 
-    def run(self):
+    def work(self):
         if self.action == 'set':
             vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', self.channel).group('id'))
-            ensure_veth_up(vpn, True)
+            ensure_veth_up(vpn)
 
-class VlanWorker(threading.Thread):
+class VlanWorker(Worker):
     """
 
     Reacts to the 'set' event of a connection being set 'alive'
@@ -216,7 +241,7 @@ class VlanWorker(threading.Thread):
         vlan_if = vlan_if_name(vpn.veth, user.vlan)
 
         with cluster.lock:
-            if cluster.exists() and cluster.status == DB.Cluster.UP:
+            if cluster.exists() and cluster.status == DB.Cluster.UP and vpn.links[user.vlan] != DB.Vpn.LINK_BRIDGED:
                 bridge_id = get_bridge_id(cluster.id)
                 BrctlCmd(BrctlCmd.ADDIF, bridge_id, vlan_if).run()
                 vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
@@ -227,10 +252,9 @@ class VlanWorker(threading.Thread):
                         "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
 
 
-    def run(self):
+    def work(self):
         if self.action == 'set':
             addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', self.channel).group('addr'))
-            logger.debug("VlanWorker responding to 'set' on connection '%s' alive status", addr)
             connection = DB.Connection(addr)
 
             # If this connection is not alive, this worker reacted to the connection being killed
@@ -247,13 +271,10 @@ class VlanWorker(threading.Thread):
                     logger.info("New connection %s traversing existing vlan link %s", connection.id, vlan_if)
 
                 else:
-                    if not link_status or link_status == 'down':
+                    if not link_status or link_status == DB.Vpn.LINK_DOWN:
                         self.bring_up_link(vpn, user)
 
                     self.bridge_cluster(vpn, user)
-
-        else:
-            logger.debug("VlanWorker not responding to '%s' event", self.action)
 
 def get_bridge_id(cluster_id):
     cluster_id = ''.join(c for c in cluster_id if c.isalnum())

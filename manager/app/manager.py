@@ -26,7 +26,7 @@ def get_env():
     env['REDIS_PORT'] = os.getenv('REDIS_PORT', '6379')
     env['REDIS_PORT'] = int(env['REDIS_PORT'])
     env['REDIS_PASSWORD'] = os.getenv('REDIS_PASSWORD')
-    env['LOG_LEVEL'] = os.getenv('LOG_LEVEL', None)
+    env['LOG_LEVEL'] = os.getenv('LOG_LEVEL', 'INFO').upper()
     env['LOG_FILE'] = os.getenv('LOG_FILE', None)
 
     return env
@@ -34,17 +34,9 @@ def get_env():
 def main():
     env = get_env()
 
-    # Init logger
-    if env['LOG_LEVEL'] is not None:
-        loglevel = getattr(logger, env['LOG_LEVEL'].upper(), None)
-        if not isinstance(loglevel, int):
-                raise ValueError('Invalid log level: {}'.format(env['LOG_LEVEL']))
-    else:
-        loglevel = logger.INFO
-
-    logger.basicConfig(
+    logging.basicConfig(
         format="[{asctime:s}] {levelname:s}: {message:s}",
-        level=loglevel,
+        level=env['LOG_LEVEL'],
         filename=env['LOG_FILE'],
         datefmt="%m/%d/%y %H:%M:%S",
         style='{'

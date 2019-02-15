@@ -5,8 +5,8 @@ It is called under the OpenVPN --client-disconnect option
 When called this script will clean up the DB entries made by client-connect
 """
 
-from .db import DB, Address
 from common import get_env
+from db import DB, Address
 from trol import RedisKeyError
 import logging
 

@@ -1,6 +1,7 @@
 from collections import Iterable
 from os import path
 import logging
+import re
 import subprocess
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,28 @@ class Cmd:
                 )
             raise
 
+class ErrorExp:
+    """ErrorExp specifies matching for subprocess errors that can be handled
+
+    Attributes:
+        code (int or None): Exit code for errors to match or None for match all.
+        regexp (pattern-like or None): Pattern to search for in process
+            output or None for no requirement on output.
+
+    Returns:
+        bool: True if the err matches code and output requirements.
+
+    """
+    def __init__(self, code=None, regexp=None):
+        self.code = code
+        self.regexp = regexp
+
+    def match(self, err):
+        if self.code is not None and err.returncode != self.code:
+            return False
+
+        return self.regexp is None or re.search(self.regexp, err.output)
+
 class LinkUpCmd(Cmd):
     """
     Kicks off and monitors an 'ip link * set up' command to bring up and interface
@@ -85,8 +108,8 @@ class VlanCmd(Cmd):
         elif action == VlanCmd.SHOW:
            self.args.extend(('show', self.vlan_if))
 
-    def run(self):
-        super().run()
+    def run(self, **kwargs):
+        super().run(**kwargs)
         LinkUpCmd(self.vlan_if).run()
 
 class BrctlCmd(Cmd):

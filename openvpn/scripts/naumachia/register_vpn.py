@@ -3,8 +3,8 @@
 Registers this OpenVPN conatainer with the Redis DB so the cluster manager can find it and the veth which is speaks through
 """
 
-from .db import DB
 from common import get_env
+from db import DB
 import json
 import logging
 

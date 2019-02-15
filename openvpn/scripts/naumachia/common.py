@@ -3,7 +3,7 @@
 This is a set of common functions used by each naumachia VPN script
 """
 
-from .db import DB
+from db import DB
 from redis import Redis
 import os
 import yaml
