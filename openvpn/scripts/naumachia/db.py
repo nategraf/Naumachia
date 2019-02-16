@@ -41,6 +41,7 @@ class DB(Database):
     class User(Model):
         DISCONNECTED = 'disconnected'
         ACTIVE = 'active'
+
         def __init__(self, id):
             self.id = id
 

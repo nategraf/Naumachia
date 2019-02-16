@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 CHALLENGE_FOLDER = '/challenges'
 
-def vlan_if_name(interface, vlan):
+def vlan_ifname(interface, vlan):
     # Create the name for the VLAN subinterface.
     # Must be less than or equal to 15 chars
     return interface[:10]+'.'+str(vlan)
@@ -48,7 +48,7 @@ class Cmd:
 
 class ErrorExp:
     """ErrorExp specifies matching for subprocess errors that can be handled
-
+    
     Attributes:
         code (int or None): Exit code for errors to match or None for match all.
         regexp (pattern-like or None): Pattern to search for in process
@@ -94,7 +94,7 @@ class VlanCmd(Cmd):
         self.interface = interface
         self.vlan = vlan
 
-        self.vlan_if = vlan_if_name(interface, vlan)
+        self.vlan_if = vlan_ifname(interface, vlan)
 
         self.args = ['ip', 'netns', 'exec', 'host', 'ip', 'link']
         if action == VlanCmd.ADD:
