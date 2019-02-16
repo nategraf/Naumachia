@@ -1,3 +1,5 @@
+"""Actions to manage VPN veth links"""
+
 from .commands import LinkUpCmd
 from .db import DB
 import logging

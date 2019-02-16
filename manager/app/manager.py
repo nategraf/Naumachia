@@ -4,7 +4,7 @@ from .cluster import cluster_down, cluster_stop, cluster_up
 from .db import DB, Address
 from .listener import Listener
 from .veth import veth_up
-from .vlan import bridge_vlan, bring_up_link
+from .vlan import vlan_link_bridge, vlan_link_up
 from redis import Redis
 from signal import signal, SIGTERM, SIGINT
 import functools
@@ -91,9 +91,9 @@ def main():
 
             else:
                 if not link_status or link_status == DB.Vpn.LINK_DOWN:
-                    bring_up_link(vpn, user)
+                    vlan_link_up(vpn, user)
 
-                bridge_vlan(vpn, user)
+                vlan_link_bridge(vpn, user)
 
     @listener.on(b'__keyspace@*__:Vpn:*:veth', event=b'set')
     def update_veth(channel, _):

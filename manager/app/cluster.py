@@ -1,19 +1,12 @@
+"""Actions to manage challenge clusters"""
+
 from .db import DB
 from .commands import vlan_ifname, BrctlCmd, ComposeCmd
-import docker
+from .vlan import vlan_link_bridge
 import logging
 import subprocess
 
 logger = logging.getLogger(__name__)
-
-dockerc = docker.from_env()
-
-def bridge_id(cluster_id):
-    cluster_id = ''.join(c for c in cluster_id if c.isalnum())
-    netlist = dockerc.networks.list(names=[cluster_id+'_default'])
-    if not netlist:
-        raise ValueError("No default network is up for {}".format(cluster_id))
-    return 'br-'+netlist[0].id[:12]
 
 def cluster_up(user, vpn, cluster, connection):
     with cluster.lock:
@@ -30,7 +23,7 @@ def cluster_up(user, vpn, cluster, connection):
             ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
 
         cluster.status = DB.Cluster.UP
-        bridge_cluster(user, vpn, cluster)
+        vlan_link_bridge(user, vpn, cluster)
 
 def cluster_stop(user, vpn, cluster):
     with cluster.lock:
@@ -56,13 +49,3 @@ def cluster_down(user, vpn, cluster):
             if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
                 vpn.links[user.vlan] = DB.Vpn.LINK_UP
             ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
-
-def bridge_cluster(user, vpn, cluster):
-    """Bridge the VLAN interface if it has been created and is in a ready state"""
-    with vpn.lock:
-        if vpn.links[user.vlan] == DB.Vpn.LINK_UP:
-            bridge = bridge_id(cluster.id)
-            vlan_if = vlan_ifname(vpn.veth, user.vlan)
-            BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
-            vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
-            logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)

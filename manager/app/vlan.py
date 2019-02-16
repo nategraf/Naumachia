@@ -1,13 +1,24 @@
-from .cluster import bridge_id
+"""Actions to manage vlan links on the VPN veth"""
+
 from .commands import vlan_ifname, BrctlCmd, VlanCmd
 from .db import DB
 from .veth import veth_up
+import docker
 import logging
 import subprocess
 
 logger = logging.getLogger(__name__)
 
-def bring_up_link(vpn, user):
+dockerc = docker.from_env()
+
+def bridge_id(cluster_id):
+    cluster_id = ''.join(c for c in cluster_id if c.isalnum())
+    netlist = dockerc.networks.list(names=[cluster_id+'_default'])
+    if not netlist:
+        raise ValueError("No default network is up for {}".format(cluster_id))
+    return 'br-'+netlist[0].id[:12]
+
+def vlan_link_up(vpn, user):
     with vpn.lock:
         try:
             VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
@@ -22,17 +33,22 @@ def bring_up_link(vpn, user):
 
         vpn.links[user.vlan] = DB.Vpn.LINK_UP
 
-def bridge_vlan(vpn, user):
-    cluster = DB.Cluster(user, vpn.chal)
-    vlan_if = vlan_ifname(vpn.veth, user.vlan)
+def vlan_link_bridge(vpn, user, cluster=None):
+    """Add the VLAN link to the cluster bridge subject to both being up"""
 
-    with cluster.lock:
-        if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] != DB.Vpn.LINK_BRIDGED:
+    cluster = cluster or DB.Cluster(user, vpn.chal)
+
+    with cluster.lock, vpn.lock:
+        if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] != DB.Vpn.LINK_UP:
             bridge = get_bridge_id(cluster.id)
+            vlan_if = vlan_ifname(vpn.veth, user.vlan)
             BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
             vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
             logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)
 
-        else:
+        elif cluster.status != DB.Cluster.UP::
             logger.info(
                     "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
+        else:
+            logger.info(
+                    "Vlan link %s not up. Defering addition of %s to a bridge", vlan_if, vlan_if)
