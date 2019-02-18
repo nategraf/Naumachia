@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .cluster import cluster_down, cluster_stop, cluster_up 
+from .commands import vlan_ifname
 from .db import DB, Address
 from .listener import Listener
 from .veth import veth_up
@@ -24,8 +25,16 @@ def get_env():
     env['REDIS_PASSWORD'] = os.getenv('REDIS_PASSWORD')
     env['LOG_LEVEL'] = os.getenv('LOG_LEVEL', 'INFO').upper()
     env['LOG_FILE'] = os.getenv('LOG_FILE', None)
+    env['CLUSTER_TIMEOUT'] = float(os.getenv('CLUSTER_TIMEOUT', 15*60))
 
     return env
+
+def connection_from_channel(channel):
+    addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):', channel.decode()).group('addr'))
+    connection = DB.Connection(addr)
+    if not connection.exists():
+        raise ValueError(f"Connection {connection.id} unexpectedly deleted")
+    return connection
 
 def main():
     env = get_env()
@@ -51,52 +60,57 @@ def main():
         sys.exit(0)
 
     @listener.on(b'__keyspace@*__:Connection:*:alive', event=b'set')
-    def update_clusters(channel, _):
-        addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel.decode()).group('addr'))
-        connection = DB.Connection(addr)
-
+    def connection_set(channel, _):
+        connection = connection_from_channel(channel)
         user = connection.user
         vpn = connection.vpn
         cluster = DB.Cluster(user, vpn.chal)
 
         if connection.alive:
-            if user.status == DB.User.ACTIVE:
-                cluster_up(user, vpn, cluster, connection)
-            else:
-                raise ValueError("Invalid state {} for user {}".format(user.status, user.id))
-
-        else:
-            if user.status == DB.User.ACTIVE:
-                logger.info("Removed connection %s for active user %s", connection.id, user.id)
-
-            if user.status == DB.User.DISCONNECTED:
-                cluster_down(user, vpn, cluster)
-
-            connection.delete()
-
-    @listener.on(b'__keyspace@*__:Connection:*:alive', event=b'set')
-    def update_vlans(channel, _):
-        addr = Address.deserialize(re.search(r'Connection:(?P<addr>\S+):alive', channel.decode()).group('addr'))
-        connection = DB.Connection(addr)
-
-        if connection.alive:
-            user = connection.user
-            vpn = connection.vpn
-
+            assert len(cluster.connections) > 0
             veth_up(vpn)
+            cluster_up(user, vpn, cluster, connection)
 
             link_status = vpn.links[user.vlan]
             if link_status == DB.Vpn.LINK_BRIDGED:
                 logger.info("New connection %s traversing existing vlan link %s", connection.id, vlan_ifname(vpn.veth, user.vlan))
-
             else:
                 if not link_status or link_status == DB.Vpn.LINK_DOWN:
                     vlan_link_up(vpn, user)
-
                 vlan_link_bridge(vpn, user)
+        else:
+            connection.delete('alive')
+
+    @listener.on(b'__keyspace@*__:Connection:*:alive', event=b'expired')
+    @listener.on(b'__keyspace@*__:Connection:*:alive', event=b'del')
+    def connection_deleted(channel, event):
+        connection = connection_from_channel(channel)
+        user = connection.user
+        vpn = connection.vpn
+        cluster = DB.Cluster(user, vpn.chal)
+
+        cluster.connections.remove(connection)
+        if len(cluster.connections) > 0:
+            action = "Expired" if event == "expired" else "Deleted"
+            logger.info("%s connection %s for user %s active on %s", action, connection.id, user.id, vpn.chal.id)
+        else:
+            logger.info("No connections for cluster %s; Setting timeout for %d seconds", cluster.id, env['CLUSTER_TIMEOUT'])
+            cluster.expire(status=env['CLUSTER_TIMEOUT'])
+        connection.delete()
+
+    @listener.on(b'__keyspace@*__:Cluster:*:status', event=b'expired')
+    def cluster_expired(channel, _):
+        m = re.search(r'Cluster:(?P<user>\S+)@(?P<chal>\S+):status', channel.decode())
+        user, chal = DB.User(m.group('user')), DB.Challenge(m.group('chal'))
+        cluster = DB.Cluster(user, chal)
+        vpn = cluster.vpn
+
+        logger.info("Destroying expired cluster %s", cluster.id)
+        cluster_down(user, vpn, cluster)
+        cluster.delete()
 
     @listener.on(b'__keyspace@*__:Vpn:*:veth', event=b'set')
-    def update_veth(channel, _):
+    def veth_set(channel, _):
         vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', channel.decode()).group('id'))
         veth_up(vpn)
 

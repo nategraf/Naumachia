@@ -22,7 +22,10 @@ def cluster_up(user, vpn, cluster, connection):
             ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
             ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
 
-        cluster.status = DB.Cluster.UP
+        cluster.update(
+            status = DB.Cluster.UP,
+            vpn = vpn
+        )
         vlan_link_bridge(user, vpn, cluster)
 
 def cluster_stop(user, vpn, cluster):
@@ -49,3 +52,4 @@ def cluster_down(user, vpn, cluster):
             if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
                 vpn.links[user.vlan] = DB.Vpn.LINK_UP
             ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
+            cluster.delete()

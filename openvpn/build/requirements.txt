@@ -1,3 +1,3 @@
 redis==3.1.0
 pyyaml==3.13
-trol==0.3.3
+trol==0.4.0

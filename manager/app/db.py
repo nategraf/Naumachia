@@ -37,18 +37,14 @@ class DB(Database):
         alive = Property(typ=bool)
         user = Property(typ=Model)
         vpn = Property(typ=Model)
+        cluster = Property(typ=Model)
 
     class User(Model):
-        DISCONNECTED = 'disconnected'
-        ACTIVE = 'active'
-
         def __init__(self, id):
             self.id = id
 
         vlan = Property(typ=int)
         cn = Property(typ=str)
-        status = Property(typ=str)
-        connections = Set(typ=Model)
 
     class Cluster(Model):
         UP = 'up'
@@ -60,6 +56,8 @@ class DB(Database):
 
         lock = Lock(timeout=60)
         status = Property(typ=str)
+        connections = Set(typ=Model)
+        vpn = Property(typ=Model)
 
     class Vpn(Model):
         LINK_UP = 'up'

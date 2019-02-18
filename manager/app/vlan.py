@@ -39,14 +39,14 @@ def vlan_link_bridge(vpn, user, cluster=None):
     cluster = cluster or DB.Cluster(user, vpn.chal)
 
     with cluster.lock, vpn.lock:
-        if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] != DB.Vpn.LINK_UP:
-            bridge = get_bridge_id(cluster.id)
-            vlan_if = vlan_ifname(vpn.veth, user.vlan)
+        vlan_if = vlan_ifname(vpn.veth, user.vlan)
+        if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] == DB.Vpn.LINK_UP:
+            bridge = bridge_id(cluster.id)
             BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
             vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
             logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)
 
-        elif cluster.status != DB.Cluster.UP::
+        elif cluster.status != DB.Cluster.UP:
             logger.info(
                     "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
         else:

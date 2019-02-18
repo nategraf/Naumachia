@@ -19,6 +19,9 @@ CCTEMPLATE = """
 vlan-pvid {vlan:d}
 """
 
+# TODO: This is set on the assumption that the OVPN client will reconnect at least once an hour. That assumption needs to be tested.
+CONNECTION_TTL = 60 * 60
+
 def parse_args():
     parser = ArgumentParser(description="Registers a new VPN user to the Redis DB and writes to the file passed in with the client specifiec configuration, whch sets the VLAN associated with this user")
     parser.add_argument('ccname', help="The name of the client configuartion file which will be written",)
@@ -46,8 +49,7 @@ def create_user(vpn, env):
     user = DB.User(user_id)
     user.update(
         vlan = allocate_vlan(),
-        cn = env['COMMON_NAME'],
-        status = DB.User.ACTIVE
+        cn = env['COMMON_NAME']
     )
 
     DB.users[env['COMMON_NAME']] = user
@@ -63,20 +65,21 @@ def client_connect(ccname):
         register_vpn()
 
     user = DB.users[env['COMMON_NAME']]
-    if user:
-        user.status = DB.User.ACTIVE
-    else:
+    if not user or not user.exists():
         user = create_user(vpn, env)
 
     addr = Address(env['TRUSTED_IP'], env['TRUSTED_PORT'])
+    cluster = DB.Cluster(user, vpn.chal)
     connection = DB.Connection(addr)
+    cluster.connections.add(connection)
     connection.update(
         addr = addr,
         vpn = vpn,
         user = user,
+        cluster = cluster,
         alive = True
     )
-    user.connections.add(connection)
+    connection.expire(alive=CONNECTION_TTL)
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=user.vlan, ip=addr.ip, port=addr.port))
 
