@@ -77,7 +77,7 @@ def main():
             else:
                 if not link_status or link_status == DB.Vpn.LINK_DOWN:
                     vlan_link_up(vpn, user)
-                vlan_link_bridge(vpn, user)
+                vlan_link_bridge(vpn, user, cluster)
         else:
             connection.delete('alive')
 

@@ -2,7 +2,6 @@
 
 from .commands import vlan_ifname, BrctlCmd, VlanCmd
 from .db import DB
-from .veth import veth_up
 import docker
 import logging
 import subprocess

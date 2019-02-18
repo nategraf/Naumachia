@@ -1,8 +1,7 @@
 """Actions to manage challenge clusters"""
 
-from .db import DB
 from .commands import vlan_ifname, BrctlCmd, ComposeCmd
-from .vlan import vlan_link_bridge
+from .db import DB
 import logging
 import subprocess
 
@@ -26,7 +25,6 @@ def cluster_up(user, vpn, cluster, connection):
             status = DB.Cluster.UP,
             vpn = vpn
         )
-        vlan_link_bridge(vpn, user, cluster)
 
 def cluster_stop(user, vpn, cluster):
     with cluster.lock:
