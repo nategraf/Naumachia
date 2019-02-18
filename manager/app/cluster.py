@@ -15,11 +15,11 @@ def cluster_up(user, vpn, cluster, connection):
 
         logger.info("Starting cluster %s on new connection %s", cluster.id, connection.id)
         try:
-            ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
+            ComposeCmd(ComposeCmd.UP, project=cluster.project, files=vpn.chal.files).run()
         except subprocess.CalledProcessError:
             # Try brining the cluster down first in case Compose left it in a limbo state
-            ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
-            ComposeCmd(ComposeCmd.UP, project=cluster.id, files=vpn.chal.files).run()
+            ComposeCmd(ComposeCmd.DOWN, project=cluster.project, files=vpn.chal.files).run()
+            ComposeCmd(ComposeCmd.UP, project=cluster.project, files=vpn.chal.files).run()
 
         cluster.update(
             status = DB.Cluster.UP,
@@ -33,7 +33,7 @@ def cluster_stop(user, vpn, cluster):
         elif cluster.status == DB.Cluster.STOPPED:
             logger.info("No action for already stopped cluster %s", cluster.id)
         else:
-            ComposeCmd(ComposeCmd.STOP, project=cluster.id, files=vpn.chal.files).run()
+            ComposeCmd(ComposeCmd.STOP, project=cluster.project, files=vpn.chal.files).run()
             logger.info("Stopping cluster %s", cluster.id)
             cluster.status = DB.Cluster.STOPPED
 
@@ -49,5 +49,5 @@ def cluster_down(user, vpn, cluster):
             cluster.status = DB.Cluster.DOWN
             if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
                 vpn.links[user.vlan] = DB.Vpn.LINK_UP
-            ComposeCmd(ComposeCmd.DOWN, project=cluster.id, files=vpn.chal.files).run()
+            ComposeCmd(ComposeCmd.DOWN, project=cluster.project, files=vpn.chal.files).run()
             cluster.delete()

@@ -10,11 +10,10 @@ logger = logging.getLogger(__name__)
 
 dockerc = docker.from_env()
 
-def bridge_id(cluster_id):
-    cluster_id = ''.join(c for c in cluster_id if c.isalnum())
-    netlist = dockerc.networks.list(names=[cluster_id+'_default'])
+def bridge_id(cluster):
+    netlist = dockerc.networks.list(names=[cluster.project+'_default'])
     if not netlist:
-        raise ValueError("No default network is up for {}".format(cluster_id))
+        raise ValueError("No default network is up for {}".format(cluster.project))
     return 'br-'+netlist[0].id[:12]
 
 def vlan_link_up(vpn, user):
@@ -40,7 +39,7 @@ def vlan_link_bridge(vpn, user, cluster=None):
     with cluster.lock, vpn.lock:
         vlan_if = vlan_ifname(vpn.veth, user.vlan)
         if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] == DB.Vpn.LINK_UP:
-            bridge = bridge_id(cluster.id)
+            bridge = bridge_id(cluster)
             BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
             vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
             logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)
