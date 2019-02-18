@@ -26,7 +26,7 @@ def cluster_up(user, vpn, cluster, connection):
             status = DB.Cluster.UP,
             vpn = vpn
         )
-        vlan_link_bridge(user, vpn, cluster)
+        vlan_link_bridge(vpn, user, cluster)
 
 def cluster_stop(user, vpn, cluster):
     with cluster.lock:
