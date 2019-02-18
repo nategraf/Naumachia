@@ -90,7 +90,7 @@ class CertificateListing:
             CertificateListing: The parsed object, or None if the line is not formated correctly
         """
         match = re.match(cls.index_format, line)
-        
+
         if match is None:
             return None
 
@@ -99,7 +99,7 @@ class CertificateListing:
         revoked_time = None
         if 'revoked' in groups and groups['revoked'] is not None:
             revoked_time = datetime.strptime(groups['revoked'], cls.ans1_format)
-        
+
         vals = {
             'status': cls.Status.parse(groups['status']),
             'expires': datetime.strptime(groups['expires'], cls.ans1_format),
@@ -177,14 +177,37 @@ class Registrar:
 
     @staticmethod
     def _escape(name):
-        return base64.b32encode(name.encode('utf-8')).decode('utf-8').strip('=')
+	"""Escape the given string to produce a valid hostname that will only contains alphanumerics
+
+	Essentially this is percent encoding, but using the lowercase z instead of percent and only
+	non-z alphanumerics are in the permitted set.
+	"""
+
+	escaped = []
+	post = string
+	for m in re.finditer(r'([a-yA-Y0-9]*)([^a-yA-Y0-9])?', string):
+	    pre, char = m.group(1, 2)
+	    escaped.append(pre)
+	    if char:
+		escaped.append(f'z{ord(char):02x}')
+	return ''.join(escaped)
+
 
     @staticmethod
     def _unescape(name):
-        missing_padding = len(name) % 8
-        if missing_padding != 0:
-            name += '=' * (8 - missing_padding)
-        return base64.b32decode(name.encode('utf-8')).decode('utf-8')
+	"""Unescape a string encoded by the escape function defined above"""
+
+	ptrn = r'([a-yA-Y0-9]*)(?:z([0-9a-f]{2}))?'
+	if not re.fullmatch(f'({ptrn})*', string):
+	    raise ValueError(f"not a z-encoded string: {string}")
+
+	unescaped = []
+	for m in re.finditer(ptrn, string):
+	    pre, char = m.group(1, 2)
+	    unescaped.append(pre)
+	    if char:
+		unescaped.append(bytes.fromhex(char).decode('utf-8'))
+	return ''.join(unescaped)
 
     def add_cert(self, cn):
         """Creates certificates for a client
@@ -278,7 +301,7 @@ class Registrar:
                 if entry is not None and (cn is None or entry.cn == cn):
                     try:
                         entry.cn = self._unescape(entry.cn)
-                    except binascii.Error:
+                    except ValueError:
                         pass # This is not an encoded name
 
                     listing.append(entry)
@@ -309,7 +332,7 @@ class Registrar:
         new_index_lines = []
         with open(path.join(self.easyrsa_pki, 'index.txt')) as index_file:
             for line in index_file:
-                entry = CertificateListing.parse(line) 
+                entry = CertificateListing.parse(line)
                 if entry is not None and entry.cn != cn:
                     new_index_lines.append(line)
 
