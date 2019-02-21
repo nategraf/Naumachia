@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .cluster import cluster_down, cluster_stop, cluster_up 
+from .cluster import cluster_down, cluster_stop, cluster_up, cluster_check
 from .commands import vlan_ifname
 from .db import DB, Address
 from .listener import Listener
@@ -66,18 +66,17 @@ def main():
         vpn = connection.vpn
         cluster = DB.Cluster(user, vpn.chal)
 
-        if connection.alive:
-            assert len(cluster.connections) > 0
-            veth_up(vpn)
-            cluster_up(user, vpn, cluster, connection)
+        logger.info("New connection %s to cluster %s", connection.id, cluster.id)
 
-            link_status = vpn.links[user.vlan]
-            if link_status == DB.Vpn.LINK_BRIDGED:
-                logger.info("New connection %s traversing existing vlan link %s", connection.id, vlan_ifname(vpn.veth, user.vlan))
-            else:
-                if not link_status or link_status == DB.Vpn.LINK_DOWN:
-                    vlan_link_up(vpn, user)
-                vlan_link_bridge(vpn, user, cluster)
+        if connection.alive:
+            if len(cluster.connections) <= 0:
+                logger.warning("Connect %s set as alive despite 0 connections registered on %s", connection.id, cluster.id)
+
+            veth_up(vpn)
+            cluster_check(cluster)
+            cluster_up(user, vpn, cluster)
+            vlan_link_up(vpn, user)
+            vlan_link_bridge(vpn, user, cluster)
         else:
             connection.delete('alive')
 
@@ -89,15 +88,14 @@ def main():
         vpn = connection.vpn
         cluster = DB.Cluster(user, vpn.chal)
 
-        cluster.connections.remove(connection)
-        if cluster.status != DB.Cluster.UP:
-            logging.warning("Removed connection %s from cluster %s in %s state", connection.id, cluster.id, cluster.status or "nil")
+        action = "Expired" if event == "expired" else "Deleted"
+        logger.info("%s connection %s to %s", action, connection.id, cluster.id)
 
+        cluster.connections.remove(connection)
         if len(cluster.connections) > 0:
-            action = "Expired" if event == "expired" else "Deleted"
-            logger.info("%s connection %s for user %s active on %s", action, connection.id, user.id, vpn.chal.id)
+            logging.debug("Cluster %s has active connections", cluster.id)
         else:
-            logger.info("No connections for cluster %s; Setting timeout for %d seconds", cluster.id, env['CLUSTER_TIMEOUT'])
+            logger.info("No connections to cluster %s; Setting timeout for %d seconds", cluster.id, env['CLUSTER_TIMEOUT'])
             cluster.status = DB.Cluster.EXPIRING
             cluster.expire(status=env['CLUSTER_TIMEOUT'])
         connection.delete()
@@ -109,13 +107,14 @@ def main():
         cluster = DB.Cluster(user, chal)
         vpn = cluster.vpn
 
-        logger.info("Destroying expired cluster %s", cluster.id)
+        logger.info("Expired cluster %s", cluster.id)
         cluster_down(user, vpn, cluster)
         cluster.delete()
 
     @listener.on(b'__keyspace@*__:Vpn:*:veth', event=b'set')
     def veth_set(channel, _):
         vpn = DB.Vpn(re.search(r'Vpn:(?P<id>\S+):veth', channel.decode()).group('id'))
+        logger.info("New vpn %s has come online", vpn.id)
         veth_up(vpn)
 
     listener.run()

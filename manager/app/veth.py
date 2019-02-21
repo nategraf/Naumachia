@@ -14,10 +14,10 @@ def veth_up(vpn):
         vpn (obj:``DB.Vpn``): The VPN tunnel which needs to have it's veth ensured
     """
     with vpn.lock:
-        if vpn.veth_state == DB.Vpn.VETH_DOWN:
-            LinkUpCmd(vpn.veth).run()
-            vpn.veth_state = DB.Vpn.VETH_UP
-            logger.info("Set veth %s on vpn tunnel %s up", vpn.veth, vpn.id)
+        if vpn.veth_state == DB.Vpn.VETH_UP:
+            logger.debug("veth %s on vpn %s already up.", vpn.veth, vpn.id)
+            return
 
-        else:
-            logger.debug("veth %s on vpn tunnel %s already up.", vpn.veth, vpn.id)
+        LinkUpCmd(vpn.veth).run()
+        vpn.veth_state = DB.Vpn.VETH_UP
+        logger.info("Activated veth %s on vpn %s", vpn.veth, vpn.id)

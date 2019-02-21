@@ -18,35 +18,40 @@ def bridge_id(cluster):
 
 def vlan_link_up(vpn, user):
     with vpn.lock:
+        link_status = vpn.links[user.vlan]
+        if link_status in (DB.Vpn.LINK_UP, DB.Vpn.LINK_BRIDGED):
+            logger.debug("Existing link for vlan %d on vpn %s is %s", user.vlan, vpn.id, link_status)
+            return
+
         try:
             VlanCmd(VlanCmd.ADD, vpn.veth, user.vlan).run()
-            logger.info("New vlan link on vpn %s for vlan %d", vpn.id, user.vlan)
+            logger.info("New link established for vlan %d on vpn %s", user.vlan, vpn.id)
         except subprocess.CalledProcessError as e:
             if e.returncode != 2:
                 raise
 
             # Raised a CalledProcessError is the link doesn't exist
-            VlanCmd(VlanCmd.SHOW, veth, vlan).run()
-            logger.warn("Unrecorded exsting link %s:%d", vpn_id, vlan)
+            VlanCmd(VlanCmd.SHOW, veth, user.vlan).run()
+            logger.warning("Unrecorded exsting link for vlan %d on vpn %s", user.vlan, vpn.id)
 
         vpn.links[user.vlan] = DB.Vpn.LINK_UP
 
-def vlan_link_bridge(vpn, user, cluster=None):
+def vlan_link_bridge(vpn, user, cluster):
     """Add the VLAN link to the cluster bridge subject to both being up"""
-
-    cluster = cluster or DB.Cluster(user, vpn.chal)
-
     with cluster.lock, vpn.lock:
         vlan_if = vlan_ifname(vpn.veth, user.vlan)
-        if cluster.status == DB.Cluster.UP and vpn.links[user.vlan] == DB.Vpn.LINK_UP:
-            bridge = bridge_id(cluster)
-            BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
-            vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
-            logger.info("Added %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)
+        link_status = vpn.links[user.vlan]
+        if link_status == DB.Vpn.LINK_BRIDGED:
+            logger.debug("Existing link %s is bridged to cluster %s", vlan_if, cluster.id)
+            return
 
-        elif cluster.status != DB.Cluster.UP:
-            logger.info(
-                    "Cluster %s not up. Defering addition of %s to a bridge", cluster.id, vlan_if)
-        else:
-            logger.info(
-                    "Vlan link %s not up. Defering addition of %s to a bridge", vlan_if, vlan_if)
+        if cluster.status != DB.Cluster.UP:
+            raise ValueError(f"cluster {cluster.id} must be up to attach link {vlan_if}; cluster is {cluster.status}")
+
+        if link_status != DB.Vpn.LINK_UP:
+            raise ValueError(f"link {vlan_if} must be up to attach to {cluster.id}; link is {link_status}")
+
+        bridge = bridge_id(cluster)
+        BrctlCmd(BrctlCmd.ADDIF, bridge, vlan_if).run()
+        vpn.links[user.vlan] = DB.Vpn.LINK_BRIDGED
+        logger.info("Attached %s to bridge %s for cluster %s", vlan_if, bridge, cluster.id)
