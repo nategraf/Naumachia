@@ -13,7 +13,7 @@ EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
 EASYRSA_NONEXIST_REVOKE_MSG = b'Unable to revoke as the input file is not a valid certificate'
 EASYRSA_NONEXIST_GET_MSG = b'Unable to find'
-EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-|v)((?:\d+\.)*\d+)')
+EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 
 script_dir = path.dirname(path.realpath(__file__))
 tools_dir = path.abspath(path.join(script_dir, '../../tools'))

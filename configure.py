@@ -41,8 +41,8 @@ defaults = {
 }
 
 GITHUB_RELEASE_API = 'https://api.github.com/repos/OpenVPN/easy-rsa/releases/{:s}'
-EASYRSA_DEFAULT=None
-EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v((?:\d+\.)*\d+)')
+EASYRSA_TAG="v3.0.4"
+EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 REGISTRAR_CERT_DIR=path
 
 def easyrsa_release(tag=None, timeout=5):
@@ -88,13 +88,13 @@ def obtain_easyrsa(update=True):
 
     if update:
         try:
-            latest_release = easyrsa_release()
+            latest_release = easyrsa_release(EASYRSA_TAG)
             latest_version = EASYRSA_VERSION_PATTERN.fullmatch(latest_release['tag_name']).group(1)
 
             if latest_install is None or latest_version > latest_install[0]:
                 extract_release(latest_release, tools_dir)
                 latest_install = max(easyrsa_installations(tools_dir))
-                logger.info('Updated EasyRSA to %s', latest_version)
+                logger.info('Installed EasyRSA %s', latest_version)
         except OSError:
             logger.warn('Failed to update EasyRSA')
 
