@@ -42,7 +42,7 @@ management 127.0.0.1 {{ chal.openvpn_management_port }}
 push dhcp-renew
 
 # Give the user an ip address from the challenge pool
-ifconfig-pool 172.30.0.5 172.30.0.15 255.255.255.240
+ifconfig-pool 172.30.0.10 172.30.0.15 255.255.255.240
 
 # Allow the same client to connect multiple times
 duplicate-cn
