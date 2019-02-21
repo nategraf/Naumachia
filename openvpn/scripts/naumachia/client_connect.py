@@ -20,7 +20,8 @@ vlan-pvid {vlan:d}
 """
 
 # Expire a connection after 12 hours under the assumption that connections will not live so long.
-CONNECTION_TTL = 12 * 60 * 60
+# NOTE: Disbaled in favor of trusting OpenVPN to send timeout messages.
+CONNECTION_TTL = None # 12 * 60 * 60
 
 def parse_args():
     parser = ArgumentParser(description="Registers a new VPN user to the Redis DB and writes to the file passed in with the client specifiec configuration, whch sets the VLAN associated with this user")
@@ -79,7 +80,9 @@ def client_connect(ccname):
         cluster = cluster,
         alive = True
     )
-    connection.expire(alive=CONNECTION_TTL)
+
+    if CONNECTION_TTL is not None:
+        connection.expire(alive=CONNECTION_TTL)
 
     logging.info("New connection from {cn}@{ip}:{port} on vlan {vlan}".format(cn=env['COMMON_NAME'], vlan=user.vlan, ip=addr.ip, port=addr.port))
 
