@@ -84,7 +84,7 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock
             - /var/run/docker/netns/default:/var/run/netns/host
             - ./logs:/var/log
-        command: [python3, /app/manager.py]
+        command: [python, -m, app]
         environment:
             - LOG_FILE=/var/log/manager.log
             - REDIS_HOSTNAME
