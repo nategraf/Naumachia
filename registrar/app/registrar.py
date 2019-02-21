@@ -184,8 +184,8 @@ class Registrar:
         """
 
         escaped = []
-        post = string
-        for m in re.finditer(r'([a-yA-Y0-9]*)([^a-yA-Y0-9])?', string):
+        post = name
+        for m in re.finditer(r'([a-yA-Y0-9]*)([^a-yA-Y0-9])?', name):
             pre, char = m.group(1, 2)
             escaped.append(pre)
             if char:
@@ -198,11 +198,11 @@ class Registrar:
         """Unescape a string encoded by the escape function defined above"""
 
         ptrn = r'([a-yA-Y0-9]*)(?:z([0-9a-f]{2}))?'
-        if not re.fullmatch(f'({ptrn})*', string):
-            raise ValueError(f"not a z-encoded string: {string}")
+        if not re.fullmatch(f'({ptrn})*', name):
+            raise ValueError(f"not a z-encoded string: {name}")
 
         unescaped = []
-        for m in re.finditer(ptrn, string):
+        for m in re.finditer(ptrn, name):
             pre, char = m.group(1, 2)
             unescaped.append(pre)
             if char:
