@@ -13,12 +13,14 @@ dockerc = docker.from_env()
 def cluster_bridge_exists(cluster):
     return bool(dockerc.networks.list(names=[cluster.project+'_default']))
 
-def cluster_check(cluster):
+def cluster_check(user, vpn, cluster):
     """Check that the cluster is up when Redis says it is up"""
     if cluster.status in (DB.Cluster.UP, DB.Cluster.EXPIRING):
         if not cluster_bridge_exists(cluster):
             logger.warning("Cluster bridge not found for %s marked as %s; marking as down", cluster.id, cluster.status)
             cluster.status = DB.Cluster.DOWN
+            if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
+                vpn.links[user.vlan] = DB.Vpn.LINK_UP
         else:
             logger.debug("Verified cluster bridge is up for %s", cluster.id)
 

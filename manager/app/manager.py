@@ -73,7 +73,7 @@ def main():
                 logger.warning("Connect %s set as alive despite 0 connections registered on %s", connection.id, cluster.id)
 
             veth_up(vpn)
-            cluster_check(cluster)
+            cluster_check(user, vpn, cluster)
             cluster_up(user, vpn, cluster)
             vlan_link_up(vpn, user)
             vlan_link_bridge(vpn, user, cluster)
@@ -117,7 +117,10 @@ def main():
         logger.info("New vpn %s has come online", vpn.id)
         veth_up(vpn)
 
-    listener.run()
+    try:
+        listener.run()
+    except (SystemExit, KeyboardInterrupt):
+        pass
 
 if __name__ == "__main__":
     main()
