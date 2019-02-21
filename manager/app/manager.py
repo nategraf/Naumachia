@@ -90,11 +90,15 @@ def main():
         cluster = DB.Cluster(user, vpn.chal)
 
         cluster.connections.remove(connection)
+        if cluster.status != DB.Cluster.UP:
+            logging.warning("Removed connection %s from cluster %s in %s state", connection.id, cluster.id, cluster.status or "nil")
+
         if len(cluster.connections) > 0:
             action = "Expired" if event == "expired" else "Deleted"
             logger.info("%s connection %s for user %s active on %s", action, connection.id, user.id, vpn.chal.id)
         else:
             logger.info("No connections for cluster %s; Setting timeout for %d seconds", cluster.id, env['CLUSTER_TIMEOUT'])
+            cluster.status = DB.Cluster.EXPIRING
             cluster.expire(status=env['CLUSTER_TIMEOUT'])
         connection.delete()
 

@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 
 def cluster_up(user, vpn, cluster, connection):
     with cluster.lock:
+        if cluster.status == DB.Cluster.EXPIRING:
+            cluster.status = DB.Cluster.UP
+            logger.info("New connection %s to expiring cluster %s; canceled expiration", connection.id, cluster.id)
+            return
+
         if cluster.status == DB.Cluster.UP:
             logger.info("New connection %s to exsiting cluster %s", connection.id, cluster.id)
             return
@@ -50,4 +55,3 @@ def cluster_down(user, vpn, cluster):
             if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
                 vpn.links[user.vlan] = DB.Vpn.LINK_UP
             ComposeCmd(ComposeCmd.DOWN, project=cluster.project, files=vpn.chal.files).run()
-            cluster.delete()

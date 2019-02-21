@@ -48,6 +48,7 @@ class DB(Database):
 
     class Cluster(Model):
         UP = 'up'
+        EXPIRING = 'expiring'
         STOPPED = 'stopped'
         DOWN = 'down'
 
