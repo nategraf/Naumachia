@@ -54,6 +54,10 @@ class DB(Database):
         def __init__(self, user, chal):
             self.id = '{}@{}'.format(user.id, chal.id)
 
+        @property
+        def project(self):
+            return self.id.replace('@', '_', 1)
+
         lock = Lock(timeout=60)
         status = Property(typ=str)
         connections = Set(typ=Model)
