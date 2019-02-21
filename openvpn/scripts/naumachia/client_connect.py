@@ -19,8 +19,8 @@ CCTEMPLATE = """
 vlan-pvid {vlan:d}
 """
 
-# TODO: This is set on the assumption that the OVPN client will reconnect at least once an hour. That assumption needs to be tested.
-CONNECTION_TTL = 60 * 60
+# Expire a connection after 12 hours under the assumption that connections will not live so long.
+CONNECTION_TTL = 12 * 60 * 60
 
 def parse_args():
     parser = ArgumentParser(description="Registers a new VPN user to the Redis DB and writes to the file passed in with the client specifiec configuration, whch sets the VLAN associated with this user")
