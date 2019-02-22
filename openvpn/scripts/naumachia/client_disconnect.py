@@ -17,7 +17,6 @@ def client_disconnect():
 
     connection = DB.Connection(Address(env['TRUSTED_IP'], env['TRUSTED_PORT']))
     if connection.exists():
-        connection.cluster.connections.remove(connection) # That's a mouthful
         connection.delete('alive')
     else:
         logging.warn("Connection {} removed from Redis prior to disconnect".format(client))
