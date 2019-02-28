@@ -190,19 +190,19 @@ attack to intercept the traffic and obtain the flag
 [`l2bridge`]: https://github.com/nategraf/l2bridge-driver
 [`static-ipam`]: https://github.com/nategraf/static-ipam-driver
 [./alice]: https://github.com/nategraf/Naumachia/tree/master/challenges/example/alice
-[./bob]: https://github.com/nategraf/Naumachia-challenges/tree/master/example/alice)
+[./bob]: https://github.com/nategraf/Naumachia-challenges/tree/master/example/alice
 
 ## Client Connection Instructions
 
 To connect to Naumachia:
-  1. Install OpenVPN. Make sure to install the TAP driver.
+  * Install OpenVPN. Make sure to install the TAP driver.
     * Debian (Ubuntu/Kali) linux CLI: `apt install openvpn`
     * [Windows GUI installer](https://openvpn.net/community-downloads/)
     * [MacOS Tunnelblick](https://tunnelblick.net/downloads.html)
-  2. Obtain an OpenVPN configuration for the challenge.
+  * Obtain an OpenVPN configuration for the challenge.
     * You will obtain a separate config for each challenge containing connection info and
       certificates for authentication.
-  3. Launch OpenVPN:
+  * Launch OpenVPN:
     * CLI: `openvpn --config <challenge>.ovpn`
     * Windows GUI: Place the config file in `%HOMEPATH%\OpenVPN\config` and right-click the VPN icon
       on the status bar, then select the config for this challenge
