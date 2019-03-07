@@ -3,7 +3,7 @@ FROM python:3-alpine
 COPY ./requirements.txt ./requirements.txt
 RUN pip install -r ./requirements.txt
 
-RUN apk add --no-cache --update bash 'easy-rsa=3.0.4-r0'
+RUN apk add --no-cache --update bash 'easy-rsa'
 ENV EASYRSA=/usr/share/easy-rsa/
 
 COPY ./app /app
