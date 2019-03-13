@@ -1,4 +1,4 @@
 jinja2==2.9.6
-pyyaml==3.13
+PyYAML==4.2b4
 requests==2.21.0
 nose2==0.8.0
