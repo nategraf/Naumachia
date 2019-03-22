@@ -95,7 +95,7 @@ Consider the example provided as [example/docker-compose.yml](https://github.com
 For examples of problems deployed in past CTFs go to the [Naumachia-challenges repo](https://github.com/nategraf/Naumachia-challenges)
 
 ```yaml
-version: '2.1'
+version: '2.4'
 
 # The file defines the configuration for simple Nauachia challenge
 # where a successful man-in-the-middle (MTIM) attack 
