@@ -27,7 +27,6 @@ defaults = {
     'challenges': {
         '*': {
             'port': 1194,
-            'files': [],
             'openvpn_management_port': None
         }
     },
@@ -130,6 +129,9 @@ def read_config(filename):
     for chal_name, chal_settings in config['challenges'].items():
         if 'commonname' not in chal_settings:
             chal_settings['commonname'] = append_domain(chal_name, config['domain'])
+
+        if 'files' not in chal_settings:
+            chal_settings['files'] = [path.join(chal_name, 'docker-compose.yml')]
 
     logger.debug("Modified: %s", config)
 

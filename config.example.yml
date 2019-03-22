@@ -35,7 +35,7 @@ challenges:
     example:
         # [default: 1194] The exposed external port for this challenges OpenVPN server
         port: 2000
-        # [required] The compose files to which define this challenge
+        # [default: [{challenge name}/docker-compose.yml] ] The compose files to which define this challenge
         # Paths should be relative to the challenges directory
         files:
             - example/docker-compose.yml
