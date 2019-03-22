@@ -59,7 +59,7 @@ class DB(Database):
         def project(self):
             return self.id.replace('@', '_', 1)
 
-        lock = Lock(timeout=60)
+        lock = Lock(timeout=300)
         status = Property(typ=str)
         connections = Set(typ=Model)
         vpn = Property(typ=Model)
