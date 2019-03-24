@@ -16,23 +16,43 @@ services:
         privileged: true
 
     {% endif -%}
+    # Bootstrapper is an arbitrary container run on the host network to mount the host netns.
+    # See https://github.com/nategraf/Naumachia/issues/31 for more details.
+    bootstrapper:
+        image: alpine
+        network_mode: host
+        command: ["/bin/true"]
+
     {% for name, chal in challenges.items() -%}
     openvpn-{{ name }}:
-        extends:
-            file: openvpn-compose.yml
-            service: openvpn
-        volumes:
-            - ./openvpn/config/{{ name }}:/etc/openvpn
-            - ./logs/{{ name }}:/var/log
+        build:
+            context: ./openvpn/build
+            args:
+                - OVPN_REPO_URL
+                - OVPN_REPO_BRANCH
+        image: naumachia/openvpn
+        depends_on:
+            - bootstrapper
+        cap_add:
+            - NET_ADMIN
+        restart: unless-stopped
         networks:
             default:
             internal:
         ports:
             - "{{ chal.port }}:1194/udp"
+        volumes:
+            - ./openvpn/config/{{ name }}:/etc/openvpn
+            - ./logs/{{ name }}:/var/log
+            - /var/run/docker/netns/default:/var/run/netns/host
+            - ./openvpn/scripts:/scripts:ro
         environment:
+            - REDIS_HOSTNAME
+            - REDIS_PORT
+            - REDIS_DB
+            - REDIS_PASSWORD
             - NAUM_FILES={{ chal.files|tojson }}
             - NAUM_CHAL="{{ name }}"
-        restart: unless-stopped
 
     {% endfor -%}
     {% if registrar -%}
@@ -76,7 +96,10 @@ services:
 
     manager:
         build: ./manager/build
-        networks: 
+        image: naumachia/manager
+        depends_on:
+            - bootstrapper
+        networks:
             internal:
         volumes:
             - ./manager/app:/app
