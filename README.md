@@ -46,7 +46,7 @@ however Naumachia could be extended to support VMs through support of Vagrantfil
 orchastration format. Without a use case that requires this, development is not being done on this
 feature.
 
-[Docker Compose config]: https://docs.docker.com/compose/compose-file/
+[Docker Compose config files]: https://docs.docker.com/compose/compose-file/
 
 ## Deployment
 
