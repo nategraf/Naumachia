@@ -157,7 +157,7 @@ attack to intercept the traffic and obtain the flag
 [l2bridge]: https://github.com/nategraf/l2bridge-driver
 [static-ipam]: https://github.com/nategraf/static-ipam-driver
 [./alice]: https://github.com/nategraf/Naumachia/tree/master/challenges/example/alice
-[./bob]: https://github.com/nategraf/Naumachia-challenges/tree/master/example/alice
+[./bob]: https://github.com/nategraf/Naumachia-challenges/tree/master/example/bob
 
 ## Distriuting Access Credentials
 In order to log into the VPN tunnel and access Naumachia a client needs the correct configuration,
