@@ -27,7 +27,8 @@ defaults = {
     'challenges': {
         '*': {
             'port': 1194,
-            'openvpn_management_port': None
+            'openvpn_management_port': None,
+            'ifconfig_push': None
         }
     },
     'registrar': {
@@ -202,6 +203,28 @@ def append_domain(name, domain):
     else:
         return name
 
+def mask(slash):
+   """creates a subnet mask from the given slash notation int"""
+   if slash < 0 or slash > 32:
+       raise ValueError("slash notation ipv4 subnet masks must be in range [0, 32]")
+
+   x = (0xffffffff << (32 - slash)) & 0xffffffff
+   return '.'.join(str((x & (0xff << s)) >> s) for s in (24, 16, 8, 0))
+
+def expand_cidr(cidr):
+    """expand a cidr fromatted addr into an addr and mask string
+
+    Example::
+      >>> expand_cidr("192.168.1.1/24")
+      ... ('192.168.1.1', '255.255.255.0')
+    """
+    m = re.fullmatch(r'(?P<addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(?P<mask>\d+)', cidr)
+    if not m:
+        raise ValueError(f"{cidr!s} is not an ipv4 cidr formatted address")
+
+    addr, slash = m.group('addr', 'mask')
+    return addr, mask(int(slash))
+
 if __name__ == "__main__":
     args = parse_args()
 
@@ -226,8 +249,11 @@ if __name__ == "__main__":
     logger.info('Using easyrsa installation at %s', args.easyrsa)
 
     # Render the docker-compose file
+    context = {'expand_cidr': expand_cidr}
+    context.update(config)
+
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
-    render(template_path, args.compose, config)
+    render(template_path, args.compose, context)
 
     # Create and missing openvpn config directories
     for name, chal in config['challenges'].items():

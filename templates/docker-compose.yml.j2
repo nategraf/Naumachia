@@ -53,6 +53,11 @@ services:
             - REDIS_PASSWORD
             - NAUM_FILES={{ chal.files|tojson }}
             - NAUM_CHAL="{{ name }}"
+            {% if chal.ifconfig_push -%}
+            {% set push_addr, push_mask = expand_cidr(chal.ifconfig_push) -%}
+            - PUSH_ADDR={{ push_addr }}
+            - PUSH_MASK={{ push_mask }}
+            {% endif %}
 
     {% endfor -%}
     {% if registrar -%}

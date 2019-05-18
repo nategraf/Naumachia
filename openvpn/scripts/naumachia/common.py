@@ -24,10 +24,12 @@ def get_env():
     env['NAUM_VETHHOST'] = yamlenv.get('naum_vethhost')
     env['NAUM_FILES'] = yamlenv.get('naum_files')
     env['NAUM_CHAL'] = yamlenv.get('naum_chal')
+    env['PUSH_ADDR'] = yamlenv.get('push_addr', None)
+    env['PUSH_MASK'] = yamlenv.get('push_mask', None)
 
     env['COMMON_NAME'] = os.getenv('common_name')
-    env['TRUSTED_IP'] = os.getenv('trusted_ip')
-    env['TRUSTED_PORT'] = os.getenv('trusted_port')
+    env['TRUSTED_IP'] = os.getenv('trusted_ip', None)
+    env['TRUSTED_PORT'] = os.getenv('trusted_port', None)
 
     if DB.redis is None:
         set_redis(env)

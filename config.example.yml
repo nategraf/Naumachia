@@ -45,3 +45,5 @@ challenges:
         commonname: foo.bar.mydomain.net
         # [default: None] If set, the OpenVPN management interface will be opened on localhost and the given port
         openvpn_management_port: null
+        # [default: None] If set, the OpenVPN server will inform the client what IPv4 address and mask to apply to their tap0 interface
+        ifconfig_push: 172.30.0.14/28
