@@ -24,3 +24,4 @@ __pycache__
 # Filter out where we pull down easyrsa
 tools
 logs
+.hypothesis

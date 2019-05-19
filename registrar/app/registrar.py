@@ -8,6 +8,7 @@ import sys
 import re
 import base64
 import binascii
+import zencode
 
 EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
@@ -175,47 +176,13 @@ class Registrar:
             else:
                 return None
 
-    @staticmethod
-    def _escape(name):
-        """Escape the given string to produce a valid hostname that will only contains alphanumerics
-
-        Essentially this is percent encoding, but using the lowercase z instead of percent and only
-        non-z alphanumerics are in the permitted set.
-        """
-
-        escaped = []
-        post = name
-        for m in re.finditer(r'([a-yA-Y0-9]*)([^a-yA-Y0-9])?', name):
-            pre, char = m.group(1, 2)
-            escaped.append(pre)
-            if char:
-                escaped.append(f'z{ord(char):02x}')
-        return ''.join(escaped)
-
-
-    @staticmethod
-    def _unescape(name):
-        """Unescape a string encoded by the escape function defined above"""
-
-        ptrn = r'([a-yA-Y0-9]*)(?:z([0-9a-f]{2}))?'
-        if not re.fullmatch(f'({ptrn})*', name):
-            raise ValueError(f"not a z-encoded string: {name}")
-
-        unescaped = []
-        for m in re.finditer(ptrn, name):
-            pre, char = m.group(1, 2)
-            unescaped.append(pre)
-            if char:
-                unescaped.append(bytes.fromhex(char).decode('utf-8'))
-        return ''.join(unescaped)
-
     def add_cert(self, cn):
         """Creates certificates for a client
 
         Args:
             cn (str): The common name of the client
         """
-        cn = self._escape(cn)
+        cn = zencode.encode(cn)
 
         proc = self._run(
             [self.easyrsa, 'build-client-full', cn, 'nopass'],
@@ -235,7 +202,7 @@ class Registrar:
         Returns:
             str: The file text for the client's OpenVPN client
         """
-        cn = self._escape(cn)
+        cn = zencode.encode(cn)
 
         def get_error_handler(e):
             if e.returncode == 1:
@@ -257,7 +224,7 @@ class Registrar:
         Args:
             cn (str): The common name of the client
         """
-        cn = self._escape(cn)
+        cn = zencode.encode(cn)
 
         def revoke_error_handler(e):
             if e.returncode == 1:
@@ -291,7 +258,7 @@ class Registrar:
             list[CertificateListing]: The certificate information for all certificates on the challenge, or for a specific client if specified
         """
         if cn:
-            cn = self._escape(cn)
+            cn = zencode.encode(cn)
 
         listing = list()
 
@@ -300,7 +267,7 @@ class Registrar:
                 entry = CertificateListing.parse(line)
                 if entry is not None and (cn is None or entry.cn == cn):
                     try:
-                        entry.cn = self._unescape(entry.cn)
+                        entry.cn = zencode.decode(entry.cn)
                     except ValueError:
                         pass # This is not an encoded name
 
@@ -320,7 +287,7 @@ class Registrar:
         Args:
             cn (str): The common name of the client (defaults to None)
         """
-        cn = self._escape(cn)
+        cn = zencode.encode(cn)
 
         for entry in self.list_certs(cn):
             self._try_remove(path.join(self.easyrsa_pki, 'certs_by_serial', entry.serial + '.pem'))
