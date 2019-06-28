@@ -9,11 +9,11 @@ based on input from those who care to give it.
 ### A multi-tenant network sandbox for security challenges
 
 **The ambition of [Naumachia](https://en.wikipedia.org/wiki/Naumachia)** is to enable the deployment
-of multi-host interactive exploit challenges for fun and non-profit. The origonal inspiration was to
+of multi-host interactive exploit challenges for fun and non-profit. The original inspiration was to
 enable network exploit challenges. The main target is providing fun and challenging exercises for
 CTFs and classrooms.
 
-The inspiration for this project comes from my love of networking and especially network security. I
+The inspiration for this project comes from my love for networking and especially network security. I
 wanted a platform to write and play challenges where everything was in-bounds including ARP
 spoofing, VLAN hopping (WIP), DNS poisoning, SNMP attacks as well as destructive attacks like
 dropping database tables and installing backdoors without interferring with other users. Naumachia
@@ -43,7 +43,7 @@ Challenges are specified through [Docker Compose config files] (`docker-compose.
 
 Docker was chosen to make each challenges instance cheap to host and each to turn up and tear down,
 however Naumachia could be extended to support VMs through support of Vagrantfile or another
-orchastration format. Without a use case that requires this, development is not being done on this
+orchestration format. Without a use case that requires this, development is not being done on this
 feature.
 
 [Docker Compose config files]: https://docs.docker.com/compose/compose-file/
@@ -71,7 +71,7 @@ Setup a `config.yml` file for your challenges and run `./configure.py`. See [`co
 [`config.example.yml`]: https://github.com/nategraf/Naumachia/blob/master/config.example.yml
 
 ### Run it!
-To run Naumachia simply bring up the environment with the [Docker Compose CLI] (e.g. `docker-compose up`)
+To run Naumachia simply bring up the environment with the [Docker Compose CLI] (e.g. `docker-compose up` or `docker-compose up -d`)
 
 [Docker Compose CLI]: https://docs.docker.com/compose/reference/overview/
 
@@ -147,11 +147,11 @@ attack to intercept the traffic and obtain the flag
    underlying reason
 2. Use the [l2bridge] and [static-ipam] drivers. Although not strictly required it is highly
    recommended that you these custom libnetwork drivers that are designed to be highly configurable
-   and function closer to a simple switch. If the default Docke bridge driver is used you will need
-   to diabled `bridge-nf-iptables` to allow traffic to traverse the network. (see
+   and function closer to a simple switch. If the default Docker bridge driver is used you will need
+   to disable `bridge-nf-iptables` to allow traffic to traverse the network. (see
    disable-bridge-nf-iptables.sh)
 3. If your challenge involves a bot, make sure every piece of code that touches user data is wrapped
-   in very general exception handling and a know good state is retuened to in an error. Although
+   in very general exception handling and a know good state is returned in an error. Although
    Docker can restart containers when they die, it will apply exponetial backoff.
 
 [l2bridge]: https://github.com/nategraf/l2bridge-driver
@@ -174,7 +174,7 @@ To generate a client config (with embedded certificates) for your challenge eith
   * `/<chal>/remove?cn=<cn>` : Remove the certificate with the specified common name (cn)
   * `/<chal>/get?cn=<cn>` : Get the OpenVPN configuration file for the user with specified common name (cn)
 
-The registrar API is by itself unauthenticated and so much by protected from the Internet, and/or
+The registrar API is by itself unauthenticated and so must be protected from the Internet, and/or
 configued to use client certificate verification, which can be specified in `config.yml`.
 
 If you do not plan to use the registrar API, set `registrar: null` in `config.yml` to disable it.
@@ -184,7 +184,7 @@ If you do not plan to use the registrar API, set `registrar: null` in `config.ym
 My favorite CTF frontend is [CTFd] with the [ctfd-naumachia-plugin].
 
 If you would like to use a different CTF platform, you will need to call the registrar API to
-generate OpenVPN configs for your users. You may you to check out get [registrar client code] in the
+generate OpenVPN configs for your users. You may need to check out the [registrar client code] in the
 CTFd plugin as an example for how to handle registration.
 
 [CTFd]: https://github.com/CTFd/CTFd
