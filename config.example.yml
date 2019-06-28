@@ -17,10 +17,10 @@ registrar:
     network: default
     # [default: false] Whether to serve using TLS
     # If enabled, configure.py will set up a CA and certificates for the registrar
-    tls_enabled: true
+    tls_enabled: false
     # [default: false] Whether to enable TLS client verification
     # Only has an effect if tls_enabled is true
-    tls_verify_client: true
+    tls_verify_client: false
     # [optional] Clients for whom certificates will be generated
     # Used in conbination with tls_verify_client to provide authentication
     # For each client in this list a certificate and key will be created in the registrar/certs directory
