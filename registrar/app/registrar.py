@@ -10,7 +10,7 @@ import base64
 import binascii
 import zencode
 
-EASYRSA_ALREADY_EXISTS_MSG = b'Request file already exists'
+EASYRSA_ALREADY_EXISTS_MSG = b'file already exists'
 EASYRSA_ALREADY_REVOKED_MSG = b'Already revoked'
 EASYRSA_NONEXIST_REVOKE_MSG = b'Unable to revoke as the input file is not a valid certificate'
 EASYRSA_NONEXIST_GET_MSG = b'Unable to find'
@@ -171,7 +171,7 @@ class Registrar:
             )
         except subprocess.CalledProcessError as e:
             if handler is None or not handler(e):
-                print(e.stderr.decode('utf-8'))
+                logging.error(e.stderr.decode('utf-8'))
                 raise
             else:
                 return None
