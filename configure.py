@@ -41,7 +41,7 @@ defaults = {
 }
 
 GITHUB_RELEASE_API = 'https://api.github.com/repos/OpenVPN/easy-rsa/releases/{:s}'
-EASYRSA_TAG="v3.0.4"
+EASYRSA_TAG="v3.0.6"
 EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 REGISTRAR_CERT_DIR=path
 
