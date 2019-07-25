@@ -1,4 +1,4 @@
-scapy==2.4.0
+scapy==2.4.1
 redis==2.10.6
 pyjwt==1.6.1
 trol<0.4
