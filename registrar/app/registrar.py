@@ -222,7 +222,7 @@ class Registrar:
 
     def read_challenge_config(self):
         with open(self.challenge_config, 'r') as config:
-            return yaml.load(config)
+            return yaml.safe_load(config)
 
     def add_cert(self, cn):
         """Creates certificates for a client

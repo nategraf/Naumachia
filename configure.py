@@ -122,7 +122,7 @@ def apply_defaults(config, defaults):
 
 def read_config(filename):
     with open(filename, 'r') as config_file:
-        config = yaml.load(config_file)
+        config = yaml.safe_load(config_file)
 
     logger.debug("Read from file: %s", config)
 
