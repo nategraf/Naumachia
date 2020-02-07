@@ -1,13 +1,15 @@
-from os import path, environ, remove, listdir
-from enum import Enum
 from datetime import datetime
-import logging
-import subprocess
-import json
-import sys
-import re
+from enum import Enum
+from os import path, environ, remove, listdir
 import base64
 import binascii
+import jinja2
+import json
+import logging
+import re
+import subprocess
+import sys
+import yaml
 import zencode
 
 EASYRSA_ALREADY_EXISTS_MSG = b'file already exists'
@@ -18,7 +20,7 @@ EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 
 script_dir = path.dirname(path.realpath(__file__))
 tools_dir = path.abspath(path.join(script_dir, '../../tools'))
-getclient = path.abspath(path.join(script_dir, "getclient"))
+client_template = path.abspath(path.join(script_dir, "client.ovpn.j2"))
 
 def easyrsa_installation(dir):
     """Get the latest EasyRSA versions installed. Returns the path for the latest version or None"""
@@ -33,6 +35,43 @@ def easyrsa_installation(dir):
 
 OPENVPN_BASE = environ.get("OPENVPN_BASE", path.abspath(path.join(script_dir, '../../openvpn/config')))
 EASYRSA = environ.get("EASYRSA") or easyrsa_installation(tools_dir)
+
+def mask(slash):
+   """creates a subnet mask from the given slash notation int"""
+   if slash < 0 or slash > 32:
+       raise ValueError("slash notation ipv4 subnet masks must be in range [0, 32]")
+
+   x = (0xffffffff << (32 - slash)) & 0xffffffff
+   return '.'.join(str((x & (0xff << s)) >> s) for s in (24, 16, 8, 0))
+
+def expand_cidr(cidr):
+    """expand a cidr fromatted addr into an addr and mask string
+
+    Example::
+      >>> expand_cidr("192.168.1.1/24")
+      ... ('192.168.1.1', '255.255.255.0')
+      >>> expand_cidr("172.10.10.5/28")
+      ... ('192.168.1.1', '255.255.255.240')
+    """
+    m = re.fullmatch(r'(?P<addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(?P<mask>\d+)', cidr)
+    if not m:
+        raise ValueError(f"{cidr!s} is not an ipv4 cidr formatted address")
+
+    addr, slash = m.group('addr', 'mask')
+    return addr, mask(int(slash))
+
+def render(tpl_path, context):
+    dirname, filename = path.split(tpl_path)
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(dirname or './')
+    ).get_template(filename).render(context)
+
+def extract_certificate(text):
+    """extract the encoded certificate from an x509 certificate file"""
+    match = re.search(r'-+BEGIN CERTIFICATE-+.*-+END CERTIFICATE-+\n?', text, re.RegexFlag.DOTALL)
+    if match is None:
+        raise ValueError("given text does not contain a certificate")
+    return match.group(0)
 
 class CertificateListing:
     """Representaion of the status of a certificate
@@ -127,7 +166,7 @@ class Registrar:
         openvpn_dir (str): Path to the directory containing OpenVPN files
         easyrsa_dir (str): Path to the directory containing EasyRSA tools
     """
-    def __init__(self, chal, openvpn_dir=None, easyrsa_dir=None):
+    def __init__(self, chal, openvpn_dir=None, easyrsa_dir=None, pki_dir=None):
         self.chal = chal
 
         if openvpn_dir is None:
@@ -149,6 +188,11 @@ class Registrar:
     def easyrsa_pki(self):
         """Get the path to the EasyRSA pki folder"""
         return path.join(self.openvpn_dir, 'pki')
+
+    @property
+    def challenge_config(self):
+        """Get the path to the challnge config file"""
+        return path.join(self.openvpn_dir, 'challenge.yml')
 
     @property
     def _run_env(self):
@@ -175,6 +219,10 @@ class Registrar:
                 raise
             else:
                 return None
+
+    def read_challenge_config(self):
+        with open(self.challenge_config, 'r') as config:
+            return yaml.load(config)
 
     def add_cert(self, cn):
         """Creates certificates for a client
@@ -210,11 +258,21 @@ class Registrar:
                     raise EntryNotFoundError(cn)
             return False
 
-        config = self._run(
-            [getclient, cn],
-            get_error_handler
-        ).stdout.decode('utf-8')
+        def read(filepath):
+            with open(filepath, 'r') as f:
+                return f.read()
 
+        config = render(client_template, {
+            'challenge': self.read_challenge_config(),
+            'client': {
+                'key': read(path.join(self.easyrsa_pki, 'private', cn + '.key')),
+                'certificate': extract_certificate(read(path.join(self.easyrsa_pki, 'issued', cn + '.crt'))),
+            },
+            'ca': {
+                'certificate': read(path.join(self.easyrsa_pki, 'ca.crt')),
+            },
+            'expand_cidr': expand_cidr,
+        })
         logging.info("Compiled configuration file for '{}'".format(cn))
         return config
 

@@ -19,5 +19,9 @@ RUN apk del autoconf automake libtool openssl-dev linux-pam-dev net-tools linux-
 COPY ./requirements.txt ./requirements.txt
 RUN pip3 install -r requirements.txt && rm requirements.txt
 
+# Replace the base image run script with a modified version.
+COPY ./ovpn_run /usr/local/bin/ovpn_run
+RUN chmod a+x /usr/local/bin/ovpn_run
+
 ENTRYPOINT ["/scripts/naumachia-start"]
 CMD ["ovpn_run"]

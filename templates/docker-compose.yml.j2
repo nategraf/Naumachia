@@ -23,7 +23,7 @@ services:
         network_mode: host
         command: ["/bin/true"]
 
-    {% for name, chal in challenges.items() -%}
+    {% for name, challenge in challenges.items() -%}
     openvpn-{{ name }}:
         build:
             context: ./openvpn/build
@@ -40,7 +40,7 @@ services:
             default:
             internal:
         ports:
-            - "{{ chal.port }}:1194/udp"
+            - "{{ challenge.port }}:1194/udp"
         volumes:
             - ./openvpn/config/{{ name }}:/etc/openvpn
             - ./logs/{{ name }}:/var/log
@@ -51,13 +51,8 @@ services:
             - REDIS_PORT
             - REDIS_DB
             - REDIS_PASSWORD
-            - NAUM_FILES={{ chal.files|tojson }}
+            - NAUM_FILES={{ challenge.files|tojson }}
             - NAUM_CHAL="{{ name }}"
-            {% if chal.ifconfig_push -%}
-            {% set push_addr, push_mask = expand_cidr(chal.ifconfig_push) -%}
-            - PUSH_ADDR={{ push_addr }}
-            - PUSH_MASK={{ push_mask }}
-            {% endif %}
 
     {% endfor -%}
     {% if registrar -%}

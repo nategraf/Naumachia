@@ -14,8 +14,8 @@ verb 3
 
 # TLS Settings
 tls-server
-key /etc/openvpn/pki/private/{{ chal.commonname }}.key
-cert /etc/openvpn/pki/issued/{{ chal.commonname }}.crt
+key /etc/openvpn/pki/private/{{ challenge.commonname }}.key
+cert /etc/openvpn/pki/issued/{{ challenge.commonname }}.crt
 ca /etc/openvpn/pki/ca.crt
 dh /etc/openvpn/pki/dh.pem
 cipher AES-256-CBC
@@ -32,10 +32,10 @@ ping-exit 1800
 user nobody
 group nogroup
 
-{% if chal.openvpn_management_port -%}
+{% if challenge.openvpn_management_port -%}
 ### Open the management interface
 # This interface should never be exposed beyond localhost
-management 127.0.0.1 {{ chal.openvpn_management_port }}
+management 127.0.0.1 {{ challenge.openvpn_management_port }}
 {% endif -%}
 
 # Inform Windows machines that they should renew DHCP on connect

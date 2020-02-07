@@ -18,9 +18,6 @@ logging.basicConfig(level=logging.DEBUG)
 CCTEMPLATE = """
 vlan-pvid {vlan:d}
 """
-IFCONFIG = """
-ifconfig-push {addr:s} {mask:s}
-"""
 
 # Expire a connection after 12 hours under the assumption that connections will not live so long.
 # NOTE: Disbaled in favor of trusting OpenVPN to send timeout messages.
@@ -91,8 +88,6 @@ def client_connect(ccname):
 
     with open(ccname, 'w') as ccfile:
         ccfile.write(CCTEMPLATE.format(vlan=user.vlan))
-        if env["PUSH_ADDR"] and env["PUSH_MASK"]:
-            ccfile.write(IFCONFIG.format(addr=env["PUSH_ADDR"], mask=env["PUSH_MASK"]))
 
 if __name__ == "__main__":
     args = parse_args()
