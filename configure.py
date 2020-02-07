@@ -96,7 +96,7 @@ def obtain_easyrsa(update=True):
                 latest_install = max(easyrsa_installations(tools_dir))
                 logger.info('Installed EasyRSA %s', latest_version)
         except OSError:
-            logger.warn('Failed to update EasyRSA')
+            logger.warning('Failed to update EasyRSA')
 
     if latest_install is not None:
         return path.join(latest_install[1], 'easyrsa')
