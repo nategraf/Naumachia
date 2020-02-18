@@ -6,6 +6,7 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
+# TODO: This assumes that the challenges will be mounted at `/challenges`. Refactor this.
 CHALLENGE_FOLDER = '/challenges'
 
 def vlan_ifname(interface, vlan):
@@ -159,9 +160,8 @@ class ComposeCmd(Cmd):
 
         if self.files:
             for cf in self.files:
-                cf = path.normpath(path.join(CHALLENGE_FOLDER, cf))
                 self.args.append('-f')
-                self.args.append(cf)
+                self.args.append(path.normpath(path.join(CHALLENGE_FOLDER, cf)))
 
         if self.action == ComposeCmd.UP:
             self.args.append('up')

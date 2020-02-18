@@ -9,13 +9,15 @@ import json
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
-    
+
 def register_vpn():
     env = get_env()
 
     chal = DB.Challenge(env['NAUM_CHAL'])
-    if len(chal.files) == 0:
-        chal.files.extend(env['NAUM_FILES'])
+
+    # Assign the list of files for this challenge.
+    chal.files.clear()
+    chal.files.extend(env['NAUM_FILES'])
 
     vpn = DB.Vpn(env['HOSTNAME'])
     vpn.update(
