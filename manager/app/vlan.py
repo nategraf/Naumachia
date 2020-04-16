@@ -30,9 +30,10 @@ def vlan_link_up(vpn, user):
             if e.returncode != 2:
                 raise
 
-            # Raised a CalledProcessError is the link doesn't exist
-            VlanCmd(VlanCmd.SHOW, veth, user.vlan).run()
-            logger.warning("Unrecorded exsting link for vlan %d on vpn %s", user.vlan, vpn.id)
+            # Error code 2 may be raised by the add command if the link exists.
+            # Check here if a link already exists that is not recorded in the database.
+            VlanCmd(VlanCmd.SHOW, vpn.veth, user.vlan).run()
+            logger.warning("Unrecorded existing link for vlan %d on vpn %s", user.vlan, vpn.id)
 
         vpn.links[user.vlan] = DB.Vpn.LINK_UP
 
