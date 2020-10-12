@@ -134,6 +134,12 @@ def read_config(filename):
         if 'files' not in chal_settings:
             chal_settings['files'] = [path.join(chal_name, 'docker-compose.yml')]
 
+        # Backwards compatibility for clients before ifconfig_push was replaced with ifconfig.
+        if 'ifconfig_push' in chal_settings and chal_settings['ifconfig'] is None:
+            logger.warning("Setting ifconfig_push is deprectaed. Please use ifconfig instead.")
+            chal_settings['ifconfig'] = chal_settings['ifconfig_push']
+            del chal_settings['ifconfig_push']
+
     logger.debug("Modified: %s", config)
 
     return config

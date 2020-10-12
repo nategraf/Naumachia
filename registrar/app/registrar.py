@@ -277,15 +277,12 @@ class Registrar:
             logging.warning("Blacklisted common name {0} retrieval requested".format(cn))
             raise BlacklistError(cn)
 
-        def get_error_handler(e):
-            if e.returncode == 1:
-                if EASYRSA_NONEXIST_GET_MSG in e.stderr:
-                    raise EntryNotFoundError(cn)
-            return False
-
         def read(filepath):
-            with open(filepath, 'r') as f:
-                return f.read()
+            try:
+                with open(filepath, 'r') as f:
+                    return f.read()
+            except FileNotFoundError as e:
+                raise EntryNotFoundError(cn) from e
 
         config = render(client_template, {
             'challenge': self.challenge_config,
