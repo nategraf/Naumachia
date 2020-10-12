@@ -179,8 +179,6 @@ def init_pki(easyrsa, directory, cn):
         subprocess.run([easyrsa, 'gen-dh'], **common_args)
         logger.info("Building server certificiate")
         subprocess.run([easyrsa, 'build-server-full', cn, 'nopass'], **common_args)
-        logger.info("Generating certificate revocation list (CRL)")
-        subprocess.run([easyrsa, 'gen-crl'], **common_args)
     except subprocess.CalledProcessError as e:
         logger.error("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
         if e.output:
