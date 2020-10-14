@@ -253,7 +253,11 @@ if __name__ == "__main__":
         logger.info("Wrote challenge config to {}".format(path.join(config_dirname, 'challenge.yml')))
 
         # Create the openvpn server config for the challenge.
-        render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), {**config, 'challenge': chal})
+        render(
+            path.join(args.templates, 'openvpn.conf.j2'),
+            path.join(config_dirname, 'openvpn.conf'),
+            {**config, 'challenge': chal}
+        )
 
     # Create certificates for the registrar if needed
     if config['registrar'] and config['registrar']['tls_enabled']:

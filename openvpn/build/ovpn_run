@@ -37,8 +37,6 @@ function addArg {
 
 addArg "--config" "$OPENVPN/openvpn.conf"
 
-source "$OPENVPN/ovpn_env.sh"
-
 mkdir -p /dev/net
 if [ ! -c /dev/net/tun ]; then
     mknod /dev/net/tun c 10 200
