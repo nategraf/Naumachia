@@ -38,9 +38,6 @@ group nogroup
 management 127.0.0.1 {{ challenge.openvpn_management_port }}
 {% endif -%}
 
-# Inform Windows machines that they should renew DHCP on connect
-push dhcp-renew
-
 # Allow the same client to connect multiple times
 duplicate-cn
 
