@@ -1,4 +1,4 @@
 requests==2.21.0
 redis==2.10.6
 trol==0.2.2
-PyYAML==4.2b4
+PyYAML==5.4
