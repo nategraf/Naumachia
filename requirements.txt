@@ -1,5 +1,5 @@
 jinja2==2.11.3
-PyYAML==4.2b4
+PyYAML==5.4
 requests==2.21.0
 nose2==0.8.0
 pytest==4.5.0
