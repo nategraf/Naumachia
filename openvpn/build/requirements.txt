@@ -1,3 +1,3 @@
-redis==3.1.0
-PyYAML==4.2b4
-trol==0.4.0
+redis>=3.1.0
+PyYAML>=5.4
+trol>=0.4.0

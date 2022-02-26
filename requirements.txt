@@ -1,6 +1,6 @@
-jinja2==2.11.3
-PyYAML==4.2b4
-requests==2.21.0
-nose2==0.8.0
-pytest==4.5.0
-hypothesis==4.23.5
+jinja2>=2.11
+PyYAML>=5.4
+requests>=2.21
+nose2>=0.8
+pytest>=4.5
+hypothesis>=4.23
