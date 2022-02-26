@@ -49,7 +49,7 @@ def istestcn(cn):
 
 def load_config():
     with open(LOADER_CONFIG, 'r') as f:
-        return yaml.load(f)
+        return yaml.safe_load(f)
 
 def apply_defaults(config, defaults):
     # Expand the wildcard
