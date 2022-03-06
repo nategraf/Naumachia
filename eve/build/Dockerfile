@@ -31,11 +31,14 @@ RUN apt-get update &&\
 # Copy bettercap from the builder image.
 COPY --from=build-env /go/bettercap/bettercap /usr/bin/
 
-# RUN apk add --no-cache bash iproute2 libpcap libusb-dev libnetfilter_queue wireless-tools
+COPY ./entrypoint.sh /entrypoint.sh
 
 # Make the device needed to run a tap device.
+# NOTE: This does not seem to work consistently as a buld step, so an entrypoint script is also
+# included that will execute the same commands at runtime if the device is missing.
 RUN mkdir /dev/net &&\
     mknod /dev/net/tun c 10 200
 
 WORKDIR /root
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 CMD ["/bin/bash"]
