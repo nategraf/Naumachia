@@ -1,13 +1,16 @@
-from os import path, environ, remove, listdir
-from enum import Enum
 from datetime import datetime
-import logging
-import subprocess
-import json
-import sys
-import re
+from enum import Enum
+from functools import lru_cache
+from os import path, environ, remove, listdir
 import base64
 import binascii
+import jinja2
+import json
+import logging
+import re
+import subprocess
+import sys
+import yaml
 import zencode
 
 EASYRSA_ALREADY_EXISTS_MSG = b'file already exists'
@@ -18,7 +21,7 @@ EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 
 script_dir = path.dirname(path.realpath(__file__))
 tools_dir = path.abspath(path.join(script_dir, '../../tools'))
-getclient = path.abspath(path.join(script_dir, "getclient"))
+client_template = path.abspath(path.join(script_dir, "client.ovpn.j2"))
 
 def easyrsa_installation(dir):
     """Get the latest EasyRSA versions installed. Returns the path for the latest version or None"""
@@ -33,6 +36,43 @@ def easyrsa_installation(dir):
 
 OPENVPN_BASE = environ.get("OPENVPN_BASE", path.abspath(path.join(script_dir, '../../openvpn/config')))
 EASYRSA = environ.get("EASYRSA") or easyrsa_installation(tools_dir)
+
+def mask(slash):
+   """creates a subnet mask from the given slash notation int"""
+   if slash < 0 or slash > 32:
+       raise ValueError("slash notation ipv4 subnet masks must be in range [0, 32]")
+
+   x = (0xffffffff << (32 - slash)) & 0xffffffff
+   return '.'.join(str((x & (0xff << s)) >> s) for s in (24, 16, 8, 0))
+
+def expand_cidr(cidr):
+    """expand a cidr formatted addr into an addr and mask string
+
+    Example::
+      >>> expand_cidr("192.168.1.1/24")
+      ... ('192.168.1.1', '255.255.255.0')
+      >>> expand_cidr("172.10.10.5/28")
+      ... ('192.168.1.1', '255.255.255.240')
+    """
+    m = re.fullmatch(r'(?P<addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(?P<mask>\d+)', cidr)
+    if not m:
+        raise ValueError(f"{cidr!s} is not an ipv4 cidr formatted address")
+
+    addr, slash = m.group('addr', 'mask')
+    return addr, mask(int(slash))
+
+def render(tpl_path, context):
+    dirname, filename = path.split(tpl_path)
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(dirname or './')
+    ).get_template(filename).render(context)
+
+def extract_certificate(text):
+    """extract the encoded certificate from an x509 certificate file"""
+    match = re.search(r'-+BEGIN CERTIFICATE-+.*-+END CERTIFICATE-+\n?', text, re.RegexFlag.DOTALL)
+    if match is None:
+        raise ValueError("given text does not contain a certificate")
+    return match.group(0)
 
 class CertificateListing:
     """Representaion of the status of a certificate
@@ -119,19 +159,29 @@ class EntryNotFoundError(Exception):
     def __str__(self):
         return "No entry for '{0}' was found".format(self.cn)
 
+class BlacklistError(Exception):
+    def __init__(self, cn):
+        self.cn = cn
+
+    def __str__(self):
+        return "Certificate with common name {0} cannot be requested".format(self.cn)
+
 class Registrar:
     """Handles certificate and configuration management for a challenge
 
     Attributes:
-        chal (str): Name of the challenge this instance manages
+        challenge (str): Name of the challenge this instance manages
         openvpn_dir (str): Path to the directory containing OpenVPN files
         easyrsa_dir (str): Path to the directory containing EasyRSA tools
     """
-    def __init__(self, chal, openvpn_dir=None, easyrsa_dir=None):
-        self.chal = chal
+    def __init__(self, challenge, openvpn_dir=None, easyrsa_dir=None, pki_dir=None):
+        self.challenge = challenge
+
+        # cached value for the challenge config.
+        self._challenge_config = None
 
         if openvpn_dir is None:
-            self.openvpn_dir = path.join(OPENVPN_BASE, chal)
+            self.openvpn_dir = path.join(OPENVPN_BASE, challenge)
         else:
             self.openvpn_dir = openvpn_dir
 
@@ -142,13 +192,28 @@ class Registrar:
 
     @property
     def easyrsa(self):
-        """Get the path to the EasyRSA executable"""
+        """path to the EasyRSA executable"""
         return path.join(self.easyrsa_dir, 'easyrsa')
 
     @property
     def easyrsa_pki(self):
-        """Get the path to the EasyRSA pki folder"""
+        """path to the EasyRSA pki folder"""
         return path.join(self.openvpn_dir, 'pki')
+
+    @property
+    def challenge_config(self):
+        """challnge config object this registrar serves"""
+        if self._challenge_config is None:
+            config_path = path.join(self.openvpn_dir, 'challenge.yml')
+            with open(config_path, 'r') as config:
+                self._challenge_config = yaml.safe_load(config)
+
+        return self._challenge_config
+
+    @property
+    def blacklist(self):
+        """list of certificates which cannot be requested for security reasons"""
+        return ("ca", self.challenge_config['commonname'])
 
     @property
     def _run_env(self):
@@ -184,6 +249,10 @@ class Registrar:
         """
         cn = zencode.encode(cn)
 
+        if cn in self.blacklist:
+            logging.warning("Blacklisted common name {0} creation requested".format(cn))
+            raise BlacklistError(cn)
+
         proc = self._run(
             [self.easyrsa, 'build-client-full', cn, 'nopass'],
             lambda e: e.returncode == 1 and EASYRSA_ALREADY_EXISTS_MSG in e.stderr,
@@ -194,7 +263,7 @@ class Registrar:
             logging.info("Built new certs for {0}".format(cn))
 
     def get_config(self, cn):
-        """Returns the confgiuration file text for an OpenvVPN client
+        """Returns the configuration file text for an OpenvVPN client
 
         Args:
             cn (str): The common name of the client
@@ -204,17 +273,28 @@ class Registrar:
         """
         cn = zencode.encode(cn)
 
-        def get_error_handler(e):
-            if e.returncode == 1:
-                if EASYRSA_NONEXIST_GET_MSG in e.stderr:
-                    raise EntryNotFoundError(cn)
-            return False
+        if cn in self.blacklist:
+            logging.warning("Blacklisted common name {0} retrieval requested".format(cn))
+            raise BlacklistError(cn)
 
-        config = self._run(
-            [getclient, cn],
-            get_error_handler
-        ).stdout.decode('utf-8')
+        def read(filepath):
+            try:
+                with open(filepath, 'r') as f:
+                    return f.read()
+            except FileNotFoundError as e:
+                raise EntryNotFoundError(cn) from e
 
+        config = render(client_template, {
+            'challenge': self.challenge_config,
+            'client': {
+                'key': read(path.join(self.easyrsa_pki, 'private', cn + '.key')),
+                'certificate': extract_certificate(read(path.join(self.easyrsa_pki, 'issued', cn + '.crt'))),
+            },
+            'ca': {
+                'certificate': read(path.join(self.easyrsa_pki, 'ca.crt')),
+            },
+            'expand_cidr': expand_cidr,
+        })
         logging.info("Compiled configuration file for '{}'".format(cn))
         return config
 
@@ -225,6 +305,10 @@ class Registrar:
             cn (str): The common name of the client
         """
         cn = zencode.encode(cn)
+
+        if cn in self.blacklist:
+            logging.warning("Blacklisted common name {0} revocation requested".format(cn))
+            raise BlacklistError(cn)
 
         def revoke_error_handler(e):
             if e.returncode == 1:
@@ -265,13 +349,21 @@ class Registrar:
         with open(path.join(self.easyrsa_pki, 'index.txt')) as index_file:
             for line in index_file:
                 entry = CertificateListing.parse(line)
-                if entry is not None and (cn is None or entry.cn == cn):
-                    try:
-                        entry.cn = zencode.decode(entry.cn)
-                    except ValueError:
-                        pass # This is not an encoded name
+                if entry is None:
+                    continue
 
-                    listing.append(entry)
+                if cn is not None and entry.cn != cn:
+                    continue
+
+                if entry.cn in self.blacklist:
+                    continue
+
+                try:
+                    entry.cn = zencode.decode(entry.cn)
+                except ValueError:
+                    pass # This is not an encoded name
+
+                listing.append(entry)
 
         return listing
 
@@ -288,6 +380,10 @@ class Registrar:
             cn (str): The common name of the client (defaults to None)
         """
         cn = zencode.encode(cn)
+
+        if cn in self.blacklist:
+            logging.warning("Blacklisted common name {0} removal requested".format(cn))
+            raise BlacklistError(cn)
 
         for entry in self.list_certs(cn):
             self._try_remove(path.join(self.easyrsa_pki, 'certs_by_serial', entry.serial + '.pem'))

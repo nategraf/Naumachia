@@ -1,0 +1,26 @@
+client
+nobind
+dev tap
+remote-cert-tls server
+float
+explicit-exit-notify
+
+remote {{ challenge.commonname }} {{ challenge.port }} udp
+{% if challenge.ifconfig -%}
+{% set addr, mask = expand_cidr(challenge.ifconfig) -%}
+ifconfig {{ addr }} {{ mask }}
+{%- endif %}
+
+<key>
+{{ client.key -}}
+</key>
+<cert>
+{{ client.certificate -}}
+</cert>
+<ca>
+{{ ca.certificate -}}
+</ca>
+key-direction 1
+
+cipher AES-128-GCM
+auth SHA256

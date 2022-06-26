@@ -32,5 +32,9 @@ RUN chmod a+x /usr/local/bin/*
 COPY ./requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt && rm requirements.txt
 
+# Replace the base image run script with a modified version.
+COPY ./ovpn_run /usr/local/bin/ovpn_run
+RUN chmod a+x /usr/local/bin/ovpn_run
+
 ENTRYPOINT ["/scripts/naumachia-start"]
 CMD ["ovpn_run"]

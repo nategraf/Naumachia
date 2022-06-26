@@ -2,18 +2,18 @@
 
 from os import path, makedirs, chmod, listdir
 from lazycert import LazyCert
+import argparse
 import io
 import jinja2
-import sys
-import yaml
-import argparse
-import subprocess
-import requests
-import tarfile
 import logging
-import tempfile
 import re
+import requests
+import subprocess
 import sys
+import sys
+import tarfile
+import tempfile
+import yaml
 
 logger = logging.getLogger(__name__)
 script_dir = path.dirname(path.realpath(__file__))
@@ -28,7 +28,7 @@ defaults = {
         '*': {
             'port': 1194,
             'openvpn_management_port': None,
-            'ifconfig_push': None
+            'ifconfig': None
         }
     },
     'registrar': {
@@ -96,7 +96,7 @@ def obtain_easyrsa(update=True):
                 latest_install = max(easyrsa_installations(tools_dir))
                 logger.info('Installed EasyRSA %s', latest_version)
         except OSError:
-            logger.warn('Failed to update EasyRSA')
+            logger.warning('Failed to update EasyRSA')
 
     if latest_install is not None:
         return path.join(latest_install[1], 'easyrsa')
@@ -133,6 +133,12 @@ def read_config(filename):
 
         if 'files' not in chal_settings:
             chal_settings['files'] = [path.join(chal_name, 'docker-compose.yml')]
+
+        # Backwards compatibility for clients before ifconfig_push was replaced with ifconfig.
+        if 'ifconfig_push' in chal_settings and chal_settings['ifconfig'] is None:
+            logger.warning("Setting ifconfig_push is deprectaed. Please use ifconfig instead.")
+            chal_settings['ifconfig'] = chal_settings['ifconfig_push']
+            del chal_settings['ifconfig_push']
 
     logger.debug("Modified: %s", config)
 
@@ -173,8 +179,6 @@ def init_pki(easyrsa, directory, cn):
         subprocess.run([easyrsa, 'gen-dh'], **common_args)
         logger.info("Building server certificiate")
         subprocess.run([easyrsa, 'build-server-full', cn, 'nopass'], **common_args)
-        logger.info("Generating certificate revocation list (CRL)")
-        subprocess.run([easyrsa, 'gen-crl'], **common_args)
     except subprocess.CalledProcessError as e:
         logger.error(f"Command '{e.cmd}' failed with exit code {e.returncode}")
         if e.output:
@@ -203,28 +207,6 @@ def append_domain(name, domain):
     else:
         return name
 
-def mask(slash):
-   """creates a subnet mask from the given slash notation int"""
-   if slash < 0 or slash > 32:
-       raise ValueError("slash notation ipv4 subnet masks must be in range [0, 32]")
-
-   x = (0xffffffff << (32 - slash)) & 0xffffffff
-   return '.'.join(str((x & (0xff << s)) >> s) for s in (24, 16, 8, 0))
-
-def expand_cidr(cidr):
-    """expand a cidr fromatted addr into an addr and mask string
-
-    Example::
-      >>> expand_cidr("192.168.1.1/24")
-      ... ('192.168.1.1', '255.255.255.0')
-    """
-    m = re.fullmatch(r'(?P<addr>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/(?P<mask>\d+)', cidr)
-    if not m:
-        raise ValueError(f"{cidr!s} is not an ipv4 cidr formatted address")
-
-    addr, slash = m.group('addr', 'mask')
-    return addr, mask(int(slash))
-
 if __name__ == "__main__":
     args = parse_args()
 
@@ -249,11 +231,8 @@ if __name__ == "__main__":
     logger.info('Using easyrsa installation at %s', args.easyrsa)
 
     # Render the docker-compose file
-    context = {'expand_cidr': expand_cidr}
-    context.update(config)
-
     template_path = path.join(args.templates, 'docker-compose.yml.j2')
-    render(template_path, args.compose, context)
+    render(template_path, args.compose, config)
 
     # Create and missing openvpn config directories
     for name, chal in config['challenges'].items():
@@ -268,11 +247,17 @@ if __name__ == "__main__":
         else:
             logger.info("Using existing openvpn config directory {}".format(config_dirname))
 
-        context = {'chal': chal}
-        context.update(config)
+        # Dump the challenge config into the openvpn directory.
+        with open(path.join(config_dirname, 'challenge.yml'), 'w') as challenge_file:
+            yaml.dump({**chal, 'name': name}, challenge_file, default_flow_style=False)
+        logger.info("Wrote challenge config to {}".format(path.join(config_dirname, 'challenge.yml')))
 
-        render(path.join(args.templates, 'ovpn_env.sh.j2'), path.join(config_dirname, 'ovpn_env.sh'), context)
-        render(path.join(args.templates, 'openvpn.conf.j2'), path.join(config_dirname, 'openvpn.conf'), context)
+        # Create the openvpn server config for the challenge.
+        render(
+            path.join(args.templates, 'openvpn.conf.j2'),
+            path.join(config_dirname, 'openvpn.conf'),
+            {**config, 'challenge': chal}
+        )
 
     # Create certificates for the registrar if needed
     if config['registrar'] and config['registrar']['tls_enabled']:

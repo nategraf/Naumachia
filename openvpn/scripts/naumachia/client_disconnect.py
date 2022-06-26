@@ -19,7 +19,7 @@ def client_disconnect():
     if connection.exists():
         connection.delete('alive')
     else:
-        logging.warn("Connection {} removed from Redis prior to disconnect".format(client))
+        logging.warning("Connection {} removed from Redis prior to disconnect".format(client))
 
 if __name__ == "__main__":
     client_disconnect()
