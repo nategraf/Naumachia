@@ -41,7 +41,7 @@ defaults = {
 }
 
 GITHUB_RELEASE_API = 'https://api.github.com/repos/OpenVPN/easy-rsa/releases/{:s}'
-EASYRSA_TAG="v3.0.6"
+EASYRSA_TAG="v3.1.0"
 EASYRSA_VERSION_PATTERN=re.compile(r'(?:EasyRSA-)?v?((?:\d+\.)*\d+)')
 REGISTRAR_CERT_DIR=path
 
@@ -168,7 +168,7 @@ def init_pki(easyrsa, directory, cn):
         logger.info("Initializing public key infrastructure (PKI)")
         subprocess.run([easyrsa, 'init-pki'], **common_args)
         logger.info("Building certificiate authority (CA)")
-        subprocess.run([easyrsa, 'build-ca', 'nopass'], input="{}.{}\n".format('ca', cn), **common_args)
+        subprocess.run([easyrsa, 'build-ca', 'nopass'], input=f"ca.{cn}\n", **common_args)
         logger.info("Generating Diffie-Hellman (DH) parameters")
         subprocess.run([easyrsa, 'gen-dh'], **common_args)
         logger.info("Building server certificiate")
@@ -176,7 +176,7 @@ def init_pki(easyrsa, directory, cn):
         logger.info("Generating certificate revocation list (CRL)")
         subprocess.run([easyrsa, 'gen-crl'], **common_args)
     except subprocess.CalledProcessError as e:
-        logger.error("Command '{}' failed with exit code {}".format(e.cmd, e.returncode))
+        logger.error(f"Command '{e.cmd}' failed with exit code {e.returncode}")
         if e.output:
             logger.error(e.output)
 
@@ -189,7 +189,7 @@ def _render(tpl_path, context):
 def render(tpl_path, dst_path, context):
     with open(dst_path, 'w') as f:
         f.write(_render(tpl_path, context))
-    logger.info("Rendered {} from {} ".format(dst_path, tpl_path))
+    logger.info(f"Rendered {dst_path} from {tpl_path} ")
 
 def rendertmp(tpl_path, context):
     f = tempfile.NamedTemporaryFile(mode='w+')
