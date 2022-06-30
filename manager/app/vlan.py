@@ -18,7 +18,7 @@ def bridge_id(cluster):
 
 def vlan_link_up(vpn, user):
     with vpn.lock:
-        link_status = vpn.links[user.vlan]
+        link_status = vpn.links.get(user.vlan)
         if link_status in (DB.Vpn.LINK_UP, DB.Vpn.LINK_BRIDGED):
             logger.debug("Existing link for vlan %d on vpn %s is %s", user.vlan, vpn.id, link_status)
             return
@@ -41,7 +41,7 @@ def vlan_link_bridge(vpn, user, cluster):
     """Add the VLAN link to the cluster bridge subject to both being up"""
     with cluster.lock, vpn.lock:
         vlan_if = vlan_ifname(vpn.veth, user.vlan)
-        link_status = vpn.links[user.vlan]
+        link_status = vpn.links.get(user.vlan)
         if link_status == DB.Vpn.LINK_BRIDGED:
             logger.debug("Existing link %s is bridged to cluster %s", vlan_if, cluster.id)
             return

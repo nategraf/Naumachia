@@ -19,7 +19,7 @@ def cluster_check(user, vpn, cluster):
         if not cluster_bridge_exists(cluster):
             logger.warning("Cluster bridge not found for %s marked as %s; marking as down", cluster.id, cluster.status)
             cluster.status = DB.Cluster.DOWN
-            if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
+            if vpn.links.get(user.vlan) == DB.Vpn.LINK_BRIDGED:
                 vpn.links[user.vlan] = DB.Vpn.LINK_UP
         else:
             logger.debug("Verified cluster bridge is up for %s", cluster.id)
@@ -74,6 +74,6 @@ def cluster_down(user, vpn, cluster):
 
         # Set status before executing the command because if is fails we should assume it's down still
         cluster.status = DB.Cluster.DOWN
-        if vpn.links[user.vlan] == DB.Vpn.LINK_BRIDGED:
+        if vpn.links.get(user.vlan) == DB.Vpn.LINK_BRIDGED:
             vpn.links[user.vlan] = DB.Vpn.LINK_UP
         ComposeCmd(ComposeCmd.DOWN, project=cluster.project, files=vpn.chal.files).run()

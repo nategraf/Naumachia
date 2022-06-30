@@ -1,5 +1,5 @@
 scapy==2.4.1
 redis==2.10.6
 pyjwt==2.4.0
-trol<0.4
+trol~=0.5.2
 snare<0.3

@@ -65,7 +65,7 @@ def client_connect(ccname):
     if not vpn in DB.vpns:
         register_vpn()
 
-    user = DB.users[env['COMMON_NAME']]
+    user = DB.users.get(env['COMMON_NAME'])
     if not user or not user.exists():
         user = create_user(vpn, env)
 

@@ -238,7 +238,7 @@ class OnlineWorkerTests(unittest.TestCase):
             manager.ensure_veth_up(self.vpn)
 
             manager.LinkUpCmd = assertNotCalled(self, "LinkUpCmd")
-            
+
             self.assertEqual(self.vpn.veth_state, 'up')
 
             manager.ensure_veth_up(self.vpn)

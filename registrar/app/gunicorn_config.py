@@ -31,6 +31,7 @@ TLS_CA = os.environ.get('TLS_CA', '/etc/ssl/ca.crt')
 # Workers and binding
 workers = 1
 bind = '{:s}:{:d}'.format(BINDING_ADDR, BINDING_PORT)
+reload = True
 
 # Configure logging
 os.makedirs(os.path.dirname(ACCESS_LOG), exist_ok=True)

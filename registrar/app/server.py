@@ -7,7 +7,7 @@ import json
 
 app = Flask(__name__)
 
-app.secret_key = environ.get("REGISTRAR_SECRET", os.urandom(32))
+app.secret_key = environ.get("REGISTRAR_SECRET", os.urandom(16))
 REGISTRAR_PORT = int(environ.get("REGISTRAR_PORT", 3960))
 
 # Initialize the dict of registrars
@@ -39,6 +39,7 @@ def register(chal, action):
         abort(400)
     except registrar.EntryNotFoundError:
         abort(404)
+    # TODO(add blacklist error)
 
     return json.dumps(result, cls=registrar.RegistrarEncoder)
 

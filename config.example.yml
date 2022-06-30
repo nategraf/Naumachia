@@ -2,6 +2,7 @@
 eve: false
 
 # [default: None] A domain name to append to challenge names to create their default common name
+# E.g. If domain is 'twist.it', the default common name for challenge 'bopit' is 'bopit.twist.it'.
 domain: mydomain.net
 
 # [default: './challenges'] The directory which contains your challenges

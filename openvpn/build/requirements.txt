@@ -1,3 +1,4 @@
 redis>=3.1.0
-PyYAML>=5.4
-trol>=0.4.0
+PyYAML==6.0
+trol~=0.5.2
+docutils~=0.18.1
