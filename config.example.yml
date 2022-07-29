@@ -11,6 +11,8 @@ challenges_directory: ./challenges
 
 # [optional] Configuration for the registrar server. Set to `null` or `false` to disable
 registrar:
+    # [default: {registrar}.{domain}] Commonname used for issuing TLS certs when TLS is in use.
+    # commonname: foo.bar.mydomain.net
     # [default: 3960] The exposed port for the registrar server
     port: 3960
     # [default: "default"] The docker network the registrar is connected to.

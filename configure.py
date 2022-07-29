@@ -125,8 +125,12 @@ def read_config(filename):
         config = yaml.safe_load(config_file)
 
     logger.debug("Read from file: %s", config)
-
     apply_defaults(config, defaults)
+
+    registrar_settings = config['registrar']
+    if 'commonname' not in registrar_settings:
+        registrar_settings['commonname'] = append_domain('registrar', config['domain'])
+
     for chal_name, chal_settings in config['challenges'].items():
         if 'commonname' not in chal_settings:
             chal_settings['commonname'] = append_domain(chal_name, config['domain'])
@@ -152,7 +156,7 @@ def parse_args():
     parser.add_argument('--verbosity', '-v', metavar="LEVEL", default="info", choices=('critical', 'error', 'warning', 'info', 'debug'), help="logging level to use")
     parser.add_argument('--config', metavar="PATH", default=path.join(script_dir, 'config.yml'), help='path to Naumachia config file')
     parser.add_argument('--templates', metavar="PATH", default=path.join(script_dir, 'templates'), help='path to the configuration templates')
-    parser.add_argument('--registrar_certs', metavar="PATH", default=path.join(script_dir, 'registrar/certs'), help='path to the configuration templates')
+    parser.add_argument('--registrar_certs', metavar="PATH", default=path.join(script_dir, 'registrar/certs'), help='path to the issued certs for registrar TLS')
     parser.add_argument('--compose', metavar="PATH", default=path.join(script_dir, 'docker-compose.yml'), help='path to the rendered docker-compose output')
     parser.add_argument('--ovpn_configs', metavar="PATH", default=path.join(script_dir, 'openvpn', 'config'), help='path to openvpn configurations')
     parser.add_argument('--easyrsa', metavar="PATH", default=None, help='location of easyrsa executable. If the path does not exist, easyrsa will be installed')
@@ -270,18 +274,16 @@ if __name__ == "__main__":
 
         # Create the gencert function here to have config and args in closure
         def gencert(name, ca=None):
-            cn = append_domain(name, config['domain'])
-            if ca is not None:
-                ca = append_domain(ca, config['domain'])
-
-            if not path.isfile(path.join(args.registrar_certs, cn + '.crt')):
-                with rendertmp(config_template, {'cn': cn, 'ca': ca is None}) as certconfig:
-                    generator.create(cn, ca=ca, config=certconfig.name)
-                logger.info("Created new certificate for {}".format(cn))
+            if not path.isfile(path.join(args.registrar_certs, name + '.crt')):
+                with rendertmp(config_template, {'cn': name, 'ca': ca is None}) as certconfig:
+                    generator.create(name, ca=ca, config=certconfig.name)
+                logger.info("Created new certificate for {}".format(name))
             else:
-                logger.info("Using existing certificate for {}".format(cn))
+                logger.info("Using existing certificate for {}".format(name))
 
-        gencert('ca')
-        gencert('registrar', 'ca')
+        # Issue TLS certs, starting with a CA, the the registrar and all clients.
+        ca_name = append_domain('ca', config['domain'])
+        gencert(ca_name)
+        gencert(config['registrar']['commonname'], ca_name)
         for client in config['registrar']['tls_clients']:
-            gencert(client, 'ca')
+            gencert(client, ca_name)

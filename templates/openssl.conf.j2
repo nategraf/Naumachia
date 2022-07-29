@@ -16,3 +16,7 @@ basicConstraints        = CA:TRUE, pathlen:0
 keyUsage                = critical,digitalSignature,keyEncipherment
 extendedKeyUsage        = serverAuth,clientAuth
 basicConstraints        = critical,CA:FALSE
+subjectAltName          = @alt_names
+
+[ alt_names ]
+DNS.1 = {{ cn }}

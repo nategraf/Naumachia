@@ -35,7 +35,7 @@ services:
             - bootstrapper
         cap_add:
             - NET_ADMIN
-        restart: unless-stopped
+        restart: on-failure
         networks:
             default:
             internal:
@@ -64,8 +64,8 @@ services:
             - ./registrar/app:/app:ro
             - ./logs/registrar:/var/log/gunicorn
             {% if registrar.tls_enabled -%}
-            - ./registrar/certs/registrar{% if domain %}.{{ domain }}{% endif %}.crt:/etc/ssl/registrar.crt
-            - ./registrar/certs/registrar{% if domain %}.{{ domain }}{% endif %}.key:/etc/ssl/registrar.key
+            - ./registrar/certs/{{ registrar.commonname }}.crt:/etc/ssl/registrar.crt
+            - ./registrar/certs/{{ registrar.commonname }}.key:/etc/ssl/registrar.key
             - ./registrar/certs/ca{% if domain %}.{{ domain }}{% endif %}.crt:/etc/ssl/ca.crt
             {%- endif %}
         environment:
@@ -77,7 +77,7 @@ services:
             {{ registrar.network }}:
         ports:
             - "{{ registrar.port }}:3960"
-        restart: unless-stopped
+        restart: on-failure
 
     {% endif -%}
     redis:
@@ -92,7 +92,7 @@ services:
         environment:
             - REDIS_PASSWORD
         command: [redis-server, /usr/local/etc/redis/redis.conf, --requirepass, $REDIS_PASSWORD]
-        restart: unless-stopped
+        restart: on-failure
 
     manager:
         build: ./manager/build
@@ -115,7 +115,7 @@ services:
             - REDIS_DB
             - REDIS_PASSWORD
         privileged: true # TODO: Narrow down privileges
-        restart: unless-stopped
+        restart: on-failure
 
 
 networks:

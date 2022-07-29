@@ -142,6 +142,7 @@ The user will log in to the VPN tunnel with a config provided by the registrar, 
 attack to intercept the traffic and obtain the flag
 
 ### Challenge Writing Strong Recommendations
+
 1. Do not use bind volumes. Instead copy any files you need into the container at build. See
    [moby/moby#28124](https://github.com/moby/moby/issues/28124) for technical discussion of the
    underlying reason
@@ -160,6 +161,7 @@ attack to intercept the traffic and obtain the flag
 [./bob]: https://github.com/nategraf/Naumachia-challenges/tree/master/example/bob
 
 ## Distriuting Access Credentials
+
 In order to log into the VPN tunnel and access Naumachia a client needs the correct configuration,
 and a registered certificate. These two are bundled in an OpenVPN client config file.
 
