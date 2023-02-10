@@ -1,5 +1,5 @@
 # Based on https://github.com/kylemanna/docker-openvpn/blob/master/Dockerfile
-FROM alpine:3.16
+FROM python:3.10-alpine3.16
 
 # TODO(victor): Split this into a builder pattern to make the final image smaller.
 RUN echo "http://dl-4.alpinelinux.org/alpine/edge/community/" >> /etc/apk/repositories && \
