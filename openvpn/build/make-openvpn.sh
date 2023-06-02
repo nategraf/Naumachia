@@ -20,11 +20,12 @@ fi
 cd openvpn
 
 if [ -n "$OVPN_REPO_BRANCH" ]; then
+    echo "Checking out branch $OVPN_REPO_URL"
     git checkout "$OVPN_REPO_BRANCH"
 fi
 
 autoreconf -i -v -f
-./configure && make && make install
+./configure --disable-lz4 --disable-lzo && make && make install
 
 cd ..
 
