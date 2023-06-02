@@ -13,7 +13,7 @@ cd build-tmp
 
 git clone "$OVPN_REPO_URL" openvpn
 if [ -z "$(ls openvpn)" ]; then
-    echo "BUILD FAILED: Could not clone $OVPN_REP_URL"
+    echo "BUILD FAILED: Could not clone $OVPN_REPO_URL"
     exit 1
 fi
 

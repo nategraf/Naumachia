@@ -10,7 +10,7 @@ fi
 
 set -e
 
-cd $OPENVPN
+cd "$OPENVPN"
 
 # Build runtime arguments array based on environment
 USER_ARGS=("${@}")
@@ -57,8 +57,7 @@ if [ -r "$OPENVPN/crl.pem" ]; then
     addArg "--crl-verify" "$OPENVPN/crl.pem"
 fi
 
-ip -6 route show default 2>/dev/null
-if [ $? = 0 ]; then
+if ip -6 route show default 2>/dev/null; then
     echo "Enabling IPv6 Forwarding"
     # If this fails, ensure the docker container is run with --privileged
     # Could be side stepped with `ip netns` madness to drop privileged flag
@@ -68,5 +67,5 @@ if [ $? = 0 ]; then
     sysctl -w net.ipv6.conf.all.forwarding=1 || echo "Failed to enable IPv6 Forwarding"
 fi
 
-echo "Running 'openvpn ${ARGS[@]} ${USER_ARGS[@]}'"
-exec openvpn ${ARGS[@]} ${USER_ARGS[@]}
+echo "Running 'openvpn ${ARGS[*]} ${USER_ARGS[*]}'"
+exec openvpn "${ARGS[@]}" "${USER_ARGS[@]}"

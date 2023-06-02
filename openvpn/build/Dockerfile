@@ -5,13 +5,11 @@ FROM python:3.10-alpine3.16
 RUN echo "http://dl-4.alpinelinux.org/alpine/edge/community/" >> /etc/apk/repositories && \
     echo "http://dl-4.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories && \
     apk add --update --no-cache autoconf automake libtool openssl-dev lzo-dev lz4-dev libqrencode \
-    linux-pam-dev net-tools linux-headers build-base git bash easy-rsa iptables iproute2 python3 \
-    py3-pip && \
+    linux-pam-dev net-tools linux-headers build-base git bash easy-rsa iptables iproute2 && \
     ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin
 
-# TOOD: Update to OpenVPN 5 and use the mainline vlan support.
-ENV OVPN_REPO_URL=https://github.com/ikelos/openvpn.git
-ENV OVPN_REPO_BRANCH=vlan-patches-v2
+ENV OVPN_REPO_URL=https://github.com/openvpn/openvpn.git
+ENV OVPN_REPO_BRANCH=release/2.6
 
 COPY ./make-openvpn.sh ./make-openvpn.sh
 RUN source ./make-openvpn.sh
