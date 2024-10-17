@@ -13,9 +13,11 @@ import yaml
 testcn_pattern = r'test[a-zA-Z]{32}'
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
+REGISTRAR_URL = os.environ.get('REGISTRAR_URL', 'http://localhost:3960')
+
 wildcard = '*'
 defaults = {
-    'registrar': 'http://localhost:3960',
+    'registrar': REGISTRAR_URL,
     'challenges': {
         '*': {
             'certificates': 0,
@@ -71,7 +73,7 @@ def apply_defaults(config, defaults):
 if __name__ == "__main__":
     # Open the connection to redis
     Db.redis = redis.Redis(host=REDIS_ADDR, port=REDIS_PORT)
-    
+
     # Load the yaml config for this test
     config = load_config()
     apply_defaults(config, defaults)

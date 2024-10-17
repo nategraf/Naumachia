@@ -1,8 +1,7 @@
 # coding: utf-8
 from cancelation import CancelationToken
-import strategy
+import snare
 import logging
-import net
 import subprocess
 import threading
 
@@ -22,7 +21,7 @@ class Runner:
 
     def execute(self, strat, canceltoken=None):
         logger.info("Starting: Opening VPN connection with config from %s", self.vpnconfig)
-        with net.OpenVpn(config=self.vpnconfig) as ovpn:
+        with snare.net.OpenVpn(config=self.vpnconfig) as ovpn:
             # Set a timeout for if we never connect
             def abort():
                 if ovpn.running():
@@ -43,7 +42,7 @@ class Runner:
 
             logger.info("Running strat %s", strat.name)
             flag = strat.execute(iface=self.iface, flagpattern=self.flagpattern, canceltoken=canceltoken)
-            
+
         if flag is not None:
             logger.info("Success! %s", flag)
         else:

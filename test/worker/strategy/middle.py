@@ -1,9 +1,9 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
 import logging
 import re
+import scapy.all as scapy
+import snare
+import strategy
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class Strategy(strategy.Strategy):
     needsip = True
     challenges = ['example', 'middle']
 
-    class AnalysisModule(capture.Module):
+    class AnalysisModule(snare.Module):
         """AnalysisModule watches the request and response in this challenge and watches for a confirmed flag"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
@@ -45,11 +45,11 @@ class Strategy(strategy.Strategy):
                     self.sniffer.stop()
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface)
+        sniffer = snare.Sniffer(iface=iface)
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
             analyser,
-            capture.ArpMitmModule()
+            snare.ArpMitmModule()
         )
 
         if canceltoken is not None:

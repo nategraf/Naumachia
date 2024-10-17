@@ -11,8 +11,6 @@ import strategy.recipe
 import logging
 import os
 import random
-import net
-import sys
 import time
 import tempfile
 import redis

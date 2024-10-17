@@ -1,9 +1,9 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
 import logging
 import re
+import scapy.all as scapy
+import snare
+import strategy
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class Strategy(strategy.Strategy):
     needsip = False
     challenges = ['listen']
 
-    class AnalysisModule(capture.Module):
+    class AnalysisModule(snare.Module):
         """AnalysisModule looks at any IP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
@@ -41,7 +41,7 @@ class Strategy(strategy.Strategy):
                     self.sniffer.stop()
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface, filter='udp')
+        sniffer = snare.Sniffer(iface=iface, filter='udp')
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(analyser)
 

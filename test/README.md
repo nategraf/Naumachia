@@ -7,6 +7,7 @@ This a system testing system consisting of a number of workers, a certificate lo
 The central component is an automated solver which can connect to Naumachia and solve a challenge given a strategy specified as Python code.
 
 Currently there are solutions for:
+
 * middle
 * listen
 

