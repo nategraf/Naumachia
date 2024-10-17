@@ -3,7 +3,7 @@ FROM debian:latest
 RUN apt-get update &&\
     apt-get install -y \
     openvpn iputils-ping curl tcpdump ettercap-text-only nmap \
-    arping arp-scan udhcpc telnet yersinia dnsutils iproute2 \
+    arping arp-scan udhcpc telnet yersinia dnsutils iproute2 isc-dhcp-client \
     python3 python3-pip python3-venv
 
 COPY ./requirements.txt /app/requirements.txt
