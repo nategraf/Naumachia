@@ -8,11 +8,13 @@ CN = {{ cn }}
 
 [ ca ]
 # X509 extensions for a ca
+default_days            = 365
 keyUsage                = critical, cRLSign, keyCertSign
 basicConstraints        = CA:TRUE, pathlen:0
 
 [ host ]
 # X509 extensions for a server
+default_days            = 365
 keyUsage                = critical,digitalSignature,keyEncipherment
 extendedKeyUsage        = serverAuth,clientAuth
 basicConstraints        = critical,CA:FALSE
